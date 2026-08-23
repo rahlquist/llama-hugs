@@ -36,6 +36,35 @@ touching `evidence-*` dirs or storing artifacts in tmpfs.
 
 ---
 
+## 0a. Coexistence operating rules (binding, F1–F3)
+
+**Do-not-touch inventory** (checksummed at F1 start, verified after every
+Llama Hugs deployment):
+- `/usr/local/bin/llama-swap` (binary)
+- `/etc/llama-swap/config.yaml` and everything under `/etc/llama-swap/`
+- llama-swap's systemd unit (`llama-swap.service`) — never stopped/restarted/edited by this project
+- llama-swap's store file (`/var/lib/llama-swap/` if enabled)
+- port 8080
+
+**Identity separation:** Llama Hugs ships as its own binary name
+(`llama-hugs`), own install dir (`/opt/llama-hugs/`, created only via
+approval), own config file name, own store path, own port (8181). No alias,
+symlink, or wrapper touching the old binary. Cutover = repointing clients;
+decommission of llama-swap is a SEPARATE future approval with its own
+checklist — "first day of replacement use" ≠ "removal day."
+
+**Read-vs-manage boundary:** during F1 all access to the live router is
+observational reads of documented GET endpoints (`/v1/models`, `/api/*`,
+`/metrics`). Any endpoint that could mutate state or trigger a model load is
+off-limits until Phase F4, and even read traffic stays low-rate polling.
+
+**Approval triggers during build:** creating `/opt/llama-hugs/`, any new port
+binding beyond localhost, any systemd unit for Llama Hugs, first non-test
+model load, cutover repoint, decommission — each is a discrete approval event.
+
+
+---
+
 ## 1. Phase 0 — Decision ledger
 
 ### 1a. Decided (round 1 + fork verdict)
@@ -87,6 +116,12 @@ touching `evidence-*` dirs or storing artifacts in tmpfs.
 - [ ] Reproduce upstream build once (Go test suite green) on the dev host.
 
 ### Phase F1 — Coexisting observer (zero-risk footprint on wimpy)
+- [ ] **Pre-flight (before any deploy):** baseline checksums recorded for the
+      §0a do-not-touch inventory; verify port 8181 is free on wimpy; verify
+      Llama Hugs can reach llama-swap's read endpoints at planned poll rate;
+      pick self-contained test models for F2 (small GGUFs already on disk,
+      sized to fit the smaller GPU without disturbing production entries).
+      All checks read-only.
 - [ ] Deploy built binary to wimpy under `/opt/llama-hugs/` (new dir; approval
       gate: creating a new top-level dir on the live box).
 - [ ] Runs on its own port (default proposal 8181, unchanged from prior plan),
@@ -96,10 +131,15 @@ touching `evidence-*` dirs or storing artifacts in tmpfs.
       before and after); Llama Hugs shows correct fleet data.
 
 ### Phase F2 — Router parity on scratch
-- [ ] Llama Hugs routes TEST models (small GGUFs or CPU instances) on its own
-      port using its own config copy — groups, env pins, hot-reload semantics
-      replicated from upstream behavior.
-- [ ] Parity test suite: swap/unload/ttl/profile behaviors match upstream.
+- [ ] **Test-isolation rule:** F2 configs are a separate config file using a
+      non-production model-ID namespace (e.g. `test-*` prefixes) and dummy or
+      small scratch GGUFs. No production entry, env pin, or group name ever
+      appears in an F2 config, so a passing test cannot become a production load.
+- [ ] Llama Hugs routes TEST models on its own port using its own config copy —
+      groups, env pins, hot-reload semantics replicated from upstream behavior.
+- [ ] Parity tests named per observable behavior: swap-on-request, unload API,
+      ttl auto-unload, profile switching, refusal to load without required env
+      pin, hot-reload pickup of config edits.
 - [ ] No production model ever loaded by Llama Hugs yet.
 
 ### Phase F3 — Platform features (post-parity)
