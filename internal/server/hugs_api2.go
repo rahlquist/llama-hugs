@@ -88,9 +88,17 @@ func (s *Server) handleHugsSettingsSet(w http.ResponseWriter, r *http.Request) {
 // nightly sweep into the hugs_bench table. Read-only against the files; the
 // only write target is the Llama Hugs store.
 func (s *Server) handleHugsBenchIngest(w http.ResponseWriter, r *http.Request) {
-	var in struct{ SourceDir string `json:"source_dir"` }
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || strings.TrimSpace(in.SourceDir) == "" {
-		http.Error(w, "body must be {\"source_dir\": \"/path\"}", http.StatusBadRequest)
+	var in struct {
+		SourceDir  string `json:"source_dir"`
+		SourceFile string `json:"source_file"` // optional: single .jsonl of records
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil ||
+		(strings.TrimSpace(in.SourceDir) == "" && strings.TrimSpace(in.SourceFile) == "") {
+		http.Error(w, `body must be {"source_dir": "/path"} or {"source_file": "/path.jsonl"}`, http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(in.SourceFile) != "" {
+		s.hugsIngestJSONL(w, r, in.SourceFile)
 		return
 	}
 	dir := in.SourceDir
@@ -127,6 +135,40 @@ func (s *Server) handleHugsBenchIngest(w http.ResponseWriter, r *http.Request) {
 				rec.RunAtUnix = time.Now().Unix()
 			}
 		}
+		if err := hugs.InsertBenchRecord(r.Context(), s.store.DB(), rec); err != nil {
+			http.Error(w, "insert: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		inserted++
+	}
+	writeJSON(w, map[string]any{"inserted": inserted, "skipped": skipped})
+}
+
+// hugsIngestJSONL ingests a line-delimited JSON file of BenchRecords.
+// Same root-safety rules as source_dir ingestion.
+func (s *Server) hugsIngestJSONL(w http.ResponseWriter, r *http.Request, path string) {
+	home, _ := os.UserHomeDir()
+	if !strings.HasPrefix(path, home) && !strings.HasPrefix(path, "/opt/llama-hugs") {
+		http.Error(w, "source_file outside allowed roots", http.StatusForbidden)
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		http.Error(w, "read file: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	inserted, skipped := 0, 0
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var rec hugs.BenchRecord
+		if err := json.Unmarshal([]byte(line), &rec); err != nil || rec.Model == "" {
+			skipped++
+			continue
+		}
+		rec.SourceFile = path
 		if err := hugs.InsertBenchRecord(r.Context(), s.store.DB(), rec); err != nil {
 			http.Error(w, "insert: "+err.Error(), http.StatusInternalServerError)
 			return

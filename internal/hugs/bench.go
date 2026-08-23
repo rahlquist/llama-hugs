@@ -37,6 +37,11 @@ CREATE INDEX IF NOT EXISTS idx_hugs_bench_model_task
 
 // InsertBenchRecord stores one datapoint.
 func InsertBenchRecord(ctx context.Context, db *sql.DB, r BenchRecord) error {
+	// The bench table is created additively on first use (idempotent), so no
+	// goose migration ordering issues arise for existing stores.
+	if _, err := db.ExecContext(ctx, ensureBenchDDL); err != nil {
+		return fmt.Errorf("hugs: ensure bench schema: %w", err)
+	}
 	if r.RunAtUnix == 0 {
 		r.RunAtUnix = time.Now().Unix()
 	}
