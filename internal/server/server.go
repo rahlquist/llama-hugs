@@ -330,6 +330,12 @@ func (s *Server) routes() {
 	mux.Handle("GET /api/hardware", apiChain.ThenFunc(s.handleAPIHardware))
 	mux.Handle("GET /api/captures/{id}", apiChain.ThenFunc(s.handleAPICapture))
 
+	// Llama Hugs extensions (fork-added; see internal/hugs).
+	mux.Handle("GET /api/hugs/meta", apiChain.ThenFunc(s.handleHugsMetaList))
+	mux.Handle("GET /api/hugs/meta/{model}", apiChain.ThenFunc(s.handleHugsMetaGet))
+	mux.Handle("POST /api/hugs/meta/{model}", apiChain.ThenFunc(s.handleHugsMetaUpdate))
+	mux.Handle("GET /api/hugs/disk", apiChain.ThenFunc(s.handleHugsDisk))
+
 	s.mux = mux
 	s.handler = chain.New(CreateRequestLogMiddleware(s.proxylog), CreateCORSMiddleware()).Then(mux)
 }
