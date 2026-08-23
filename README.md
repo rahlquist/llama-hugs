@@ -2,10 +2,11 @@
 
 ![Llama Hugs mascot](llama-hugs-mascot.png)
 
-A fork of [llama-swap](https://github.com/mostlygeek/llama-swap) (pinned at
-v250) that will eventually replace it as the model router on the wimpy
-inference host. The MVP runs as a parallel router on its own port/config/store,
-reading the same GGUF model files llama-swap already uses.
+A fork of [llama-swap](https://github.com/mostlygeek/llama-swap) 
+(pinned at v250) that will eventually be a model router for your
+inference host. The MVP runs as a parallel router on its own 
+port/config/store, reading the same GGUF model files llama-swap 
+already uses.
 
 ## Status
 
