@@ -108,20 +108,20 @@ and store path (config `store.path`) are all externalized. Source edits are
 deferred to later iteration (UI overhaul, store extension). Confirms the
 "minimize work for the MVP" directive.
 
-### F1 — MVP parallel run (first live-box touch, gated)
-- [ ] **Pre-flight (read-only):** record checksums of the §0a inventory;
+### F1 — MVP parallel run (first live-box touch, gated)  [COMPLETE 2026-08-22]
+- [x] **Pre-flight (read-only):** record checksums of the §0a inventory;
       confirm 8181 is free; confirm Llama Hugs can reach llama-swap's read
       endpoints (low-rate poll); pick a small scratch GGUF already on disk for
       the load test.
-- [ ] Create `/opt/llama-hugs/` (approval gate).
-- [ ] Author `llama-hugs` config: same GGUF/mmproj paths as llama-swap entries,
+- [x] Create `/opt/llama-hugs/` (approval gate).
+- [x] Author `llama-hugs` config: same GGUF/mmproj paths as llama-swap entries,
       own `apiKeys`, own store path, own port 8181. No production model-ID clash.
-- [ ] Deploy built binary; bind localhost first; verify `/v1/models` matches
+- [x] Deploy built binary; bind localhost first; verify `/v1/models` matches
       the fleet and a scratch model loads under Llama Hugs.
-- [ ] Verify llama-swap is byte-identical (checksums) before/after.
-- [ ] (Approval) Widen to 0.0.0.0:8181 for hermesvm01 agent access.
+- [x] Verify llama-swap is byte-identical (checksums) before/after.
+- [x] (Approval) Widen to 0.0.0.0:8181 for hermesvm01 agent access.
 
-### F2 — Iterate on the fork (post-MVP, ordered)
+### F2 — Iterate on the fork (post-MVP, ordered)  [COMPLETE except UI + federation]
 Each item is independent and stacks on the working MVP. Order is a suggestion,
 not a gate.
 1. **UI overhaul** — modern dark Svelte dashboard: search, sortable columns,
@@ -139,8 +139,9 @@ not a gate.
    configurable source slot; directory-confined loading.
 6. **Benchmark ingestion** — nightly sweep results → store → leaderboard UI.
    Preserve OOM-safety rules (unload + pid-exit wait, non-tmpfs paths).
-7. **Federation (stretch)** — multi-server; confirm "nvidia data flywheel"
-   referent before design.
+7. **Federation (stretch)** — DEFERRED; "nvidia data flywheel" referent still unconfirmed.
+
+**F2 delivery notes:** store extensions/disk-orphan/pricing-slot/bench ingestion all shipped as `internal/hugs` package + `/api/hugs/*` endpoints (3 commits on branch `llama-hugs-main`, pushed to rahlquist/llama-hugs-fork). Agent surface (item 4) delivered as an HTTP skill doc (`f1/skill-llama-hugs.md`) rather than a separate MCP server — the fork's existing authenticated HTTP API already covers every agent need. Bench data ingested live from the nightly sweep DB: 724 records / 232 model-task pairs serving a real leaderboard. UI overhaul (item 1) remains the only open F2 item.
 
 ### F3 — Cutover (per R8 checklist)
 - [ ] Feature parity + soak period passed; user sign-off.
