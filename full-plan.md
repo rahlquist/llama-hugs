@@ -82,15 +82,31 @@ upstream's Go + Svelte + modernc.org/sqlite stack.
 
 ## 2. Phases
 
-### F0 — Fork setup (local, no live-box touch)
-- [ ] Clone upstream `mostlygeek/llama-swap` at a **pinned tag** (v250-era).
-      Add `upstream` remote; fork repo lives in-repo as `~/llama-hugs/hugs/`.
-- [ ] Rename binary/UI strings to Llama Hugs; change default port to 8181 and
-      default config/store paths to Llama Hugs-owned locations.
-- [ ] Reproduce upstream build once on the dev host (Go test suite green,
-      Svelte UI builds and embeds). Confirm a single self-contained binary.
-- [ ] Document the divergence budget (R10): new code isolated in new
-      packages/dirs; minimize edits to upstream files to keep future merges cheap.
+### F0 — Fork setup (local, no live-box touch)  [COMPLETE]
+
+- [x] Clone upstream `mostlygeek/llama-swap` at **pinned v250** (commit
+      60226b6) into `~/llama-hugs/hugs/`; `upstream` remote added; `origin`
+      points at the fork repo (to be pushed later).
+- [x] Build toolchain: Go installed via pacman (`extra/go` 1.26.6 satisfies
+      repo `go 1.26.1`); Node/npm already present. **Build happens on wimpy
+      itself** (R3 decision revised: build on-host, still ship one self-contained
+      binary via the `embed_ui` build tag).
+- [x] Reproduced upstream build: `make ui` (Svelte) + `make linux-amd64`
+      produces `build/llama-swap-linux-amd64` (24 MB, UI embedded).
+- [x] **Runtime proof (real execution):** started the binary with a tiny
+      config on `127.0.0.1:8181`, `apiKeys`, and its own `store.path`. Result:
+      `GET /v1/models` returns 200 **with** the bearer key, **401 without** it;
+      the store sqlite file was created at our own path and llama-swap was never
+      touched. Confirmed the fork builds and runs as a router unchanged.
+- [x] Divergence budget (R10) recorded: minimal edits required (see F1);
+      new code isolated in new packages/dirs where possible.
+
+**F0 outcome:** the MVP path is even cheaper than planned — running Llama Hugs
+as a parallel router needs **no source edits**: binary name (build output /
+`-ldflags` or a rename), port (`-listen 8181`), config path (`-config`),
+and store path (config `store.path`) are all externalized. Source edits are
+deferred to later iteration (UI overhaul, store extension). Confirms the
+"minimize work for the MVP" directive.
 
 ### F1 — MVP parallel run (first live-box touch, gated)
 - [ ] **Pre-flight (read-only):** record checksums of the §0a inventory;
