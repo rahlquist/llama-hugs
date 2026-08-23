@@ -335,6 +335,11 @@ func (s *Server) routes() {
 	mux.Handle("GET /api/hugs/meta/{model}", apiChain.ThenFunc(s.handleHugsMetaGet))
 	mux.Handle("POST /api/hugs/meta/{model}", apiChain.ThenFunc(s.handleHugsMetaUpdate))
 	mux.Handle("GET /api/hugs/disk", apiChain.ThenFunc(s.handleHugsDisk))
+	mux.Handle("GET /api/hugs/pricing", apiChain.ThenFunc(s.handleHugsPricing))
+	mux.Handle("GET /api/hugs/settings", apiChain.ThenFunc(s.handleHugsSettingsGet))
+	mux.Handle("POST /api/hugs/settings", apiChain.ThenFunc(s.handleHugsSettingsSet))
+	mux.Handle("POST /api/hugs/bench/ingest", apiChain.ThenFunc(s.handleHugsBenchIngest))
+	mux.Handle("GET /api/hugs/bench/leaderboard", apiChain.ThenFunc(s.handleHugsBenchLeaderboard))
 
 	s.mux = mux
 	s.handler = chain.New(CreateRequestLogMiddleware(s.proxylog), CreateCORSMiddleware()).Then(mux)

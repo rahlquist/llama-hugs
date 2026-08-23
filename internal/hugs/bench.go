@@ -1,0 +1,114 @@
+package hugs
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"sort"
+	"time"
+)
+
+// BenchRecord is one benchmark datapoint (model × task × run).
+type BenchRecord struct {
+	ID         int64   `json:"id"`
+	Model      string  `json:"model"`
+	Task       string  `json:"task"`
+	TokensPerS float64 `json:"tokens_per_s"`
+	RunAtUnix  int64   `json:"run_at_unix"`
+	Notes      string  `json:"notes,omitempty"`
+	SourceFile string  `json:"source_file,omitempty"`
+}
+
+// EnsureBenchSchema creates the bench table if missing (additive, idempotent —
+// mirrors the goose-migration DDL for environments where tests open a raw db).
+const ensureBenchDDL = `
+CREATE TABLE IF NOT EXISTS hugs_bench (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model TEXT NOT NULL,
+    task TEXT NOT NULL DEFAULT '',
+    tokens_per_s REAL NOT NULL DEFAULT 0,
+    run_at INTEGER NOT NULL DEFAULT 0,
+    notes TEXT NOT NULL DEFAULT '',
+    source_file TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_hugs_bench_model_task
+    ON hugs_bench (model, task, tokens_per_s DESC);
+`
+
+// InsertBenchRecord stores one datapoint.
+func InsertBenchRecord(ctx context.Context, db *sql.DB, r BenchRecord) error {
+	if r.RunAtUnix == 0 {
+		r.RunAtUnix = time.Now().Unix()
+	}
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO hugs_bench (model, task, tokens_per_s, run_at, notes, source_file)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		r.Model, r.Task, r.TokensPerS, r.RunAtUnix, r.Notes, r.SourceFile)
+	if err != nil {
+		return fmt.Errorf("hugs: insert bench: %w", err)
+	}
+	return nil
+}
+
+// LeaderboardRow is one line of the flat comparison: best tokens/s seen for
+// a model×task pair plus when it was measured.
+type LeaderboardRow struct {
+	Model      string  `json:"model"`
+	Task       string  `json:"task"`
+	BestTPS    float64 `json:"best_tokens_per_s"`
+	RunAtUnix  int64   `json:"run_at_unix"`
+	RunCount   int     `json:"run_count"`
+}
+
+// Leaderboard returns best-per-model×task rows sorted by BestTPS desc.
+func Leaderboard(ctx context.Context, db *sql.DB) ([]LeaderboardRow, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT model, task, MAX(tokens_per_s), MAX(run_at), COUNT(*)
+		FROM hugs_bench
+		GROUP BY model, task`)
+	if err != nil {
+		return nil, fmt.Errorf("hugs: leaderboard: %w", err)
+	}
+	defer rows.Close()
+	out := []LeaderboardRow{}
+	for rows.Next() {
+		var row LeaderboardRow
+		var task string
+		var best sql.NullFloat64
+		var runAt sql.NullInt64
+		if err := rows.Scan(&row.Model, &task, &best, &runAt, &row.RunCount); err != nil {
+			return nil, fmt.Errorf("hugs: leaderboard scan: %w", err)
+		}
+		row.Task = task
+		row.BestTPS = best.Float64
+		row.RunAtUnix = runAt.Int64
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].BestTPS > out[j].BestTPS })
+	return out, nil
+}
+
+// TrendRows returns all records for one model×task ordered by time, for the
+// UI's regression view.
+func TrendRows(ctx context.Context, db *sql.DB, model, task string) ([]BenchRecord, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, model, task, tokens_per_s, run_at, notes, source_file
+		FROM hugs_bench WHERE model = ? AND task = ?
+		ORDER BY run_at ASC`, model, task)
+	if err != nil {
+		return nil, fmt.Errorf("hugs: trend: %w", err)
+	}
+	defer rows.Close()
+	out := []BenchRecord{}
+	for rows.Next() {
+		var r BenchRecord
+		if err := rows.Scan(&r.ID, &r.Model, &r.Task, &r.TokensPerS, &r.RunAtUnix, &r.Notes, &r.SourceFile); err != nil {
+			return nil, fmt.Errorf("hugs: trend scan: %w", err)
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
