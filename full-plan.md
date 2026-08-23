@@ -1,197 +1,176 @@
-# Llama Hugs — Implementation Plan (Fork/Replace Architecture)
+# Llama Hugs — Implementation Plan (Fork of llama-swap, Minimal MVP)
 
-> **Status:** PLANNING ONLY. Supersedes the previous companion-service plan
-> (git history preserves it). Derived from `~/llama-hugs/llama-hugs.md` plus the
-> user's explicit Phase 0 verdicts, including the decisive one:
-> **Llama Hugs forks llama-swap and eventually REPLACES it. It is not a
-> companion service.** During the build it must stand up alongside the live
-> llama-swap on wimpy WITHOUT modifying its directory structures, config,
-> binaries, or anything about it.
->
-> Items marked **PROVISIONAL** are open Round-2 decisions; they gate dependent
-> tasks but not this document's existence.
+> **Status:** PLANNING ONLY. Reconstructed from `~/llama-hugs/llama-hugs.md`
+> (the overview) plus the user's Phase 0 verdicts. No implementation performed
+> or authorized. Everything touching the live wimpy host carries an approval gate.
 
 ---
 
 ## 0. Summary
 
-Llama Hugs is a fork of llama-swap (Go, Svelte web UI) evolved into the full
-platform: modern UI, durable storage beyond the stock activity store, agent/MCP
-integration, plugins/enrichment, benchmark presentation, lifecycle automation,
-multi-server federation. End state: Llama Hugs replaces llama-swap on wimpy.
-Build state: both run side by side, zero interference with the live router.
+**Llama Hugs is a fork of llama-swap.** It eventually replaces llama-swap on
+wimpy, but the MVP is deliberately small: take upstream's working code, change
+its *identity and paths* (binary name, port, config file, store, install dir),
+and have it read the **same model files** llama-swap already uses. Everything
+else — UI overhaul, extra store tables, plugins, MCP, benchmarks, federation —
+is later iteration on top of the fork. We do not rebuild what upstream already
+ships (router, groups, env pins, hot-reload, `apiKeys` auth, SQLite store,
+Svelte UI).
 
-**Hard coexistence constraint (binding at all times):**
-- Llama Hugs never writes inside llama-swap's directories (`/etc/llama-swap/`,
-  `/usr/local/bin/llama-swap`, its store file, systemd unit).
-- Llama Hugs binds its OWN port (never 8080 while llama-swap is live).
-- During coexistence Llama Hugs READS llama-swap's API/config/model files;
-  it does not proxy-manage them until cutover.
-- Any interaction with the live service (even reads) follows live-box rules:
-  approval gates, no sudo/service changes unapproved.
+**MVP definition (the whole bar):**
+1. Fork compiles (Go + embedded Svelte assets).
+2. Runs on its own port (8181) with its own config/store/install dirs.
+3. Its config references the **same GGUF/mmproj paths** llama-swap uses
+   (`~/.cache/llama.cpp/...`) — no model copying.
+4. Auth uses upstream's existing `apiKeys` bearer-token model unchanged.
+5. Serves `/v1/models` and can load a non-production test model without
+   touching llama-swap's files, port, or process.
 
-**Non-goals:** modifying the running llama-swap in any way during the build;
-auto-upgrading llama.cpp; automatic model deletion (decided Q8: no pruning);
-touching `evidence-*` dirs or storing artifacts in tmpfs.
+After that: iterate. The MVP is the floor, not the ceiling.
 
 ---
 
-## 0a. Coexistence operating rules (binding, F1–F3)
+## 0a. Coexistence operating rules (binding through build + dual-run)
 
-**Do-not-touch inventory** (checksummed at F1 start, verified after every
+**Do-not-touch inventory** (checksummed at F1 start, re-verified after every
 Llama Hugs deployment):
 - `/usr/local/bin/llama-swap` (binary)
-- `/etc/llama-swap/config.yaml` and everything under `/etc/llama-swap/`
-- llama-swap's systemd unit (`llama-swap.service`) — never stopped/restarted/edited by this project
-- llama-swap's store file (`/var/lib/llama-swap/` if enabled)
+- `/etc/llama-swap/` (config + everything under it)
+- `llama-swap.service` (never stopped/restarted/edited by this project)
+- llama-swap's store file (`/var/lib/llama-swap/` if present)
 - port 8080
 
-**Identity separation:** Llama Hugs ships as its own binary name
-(`llama-hugs`), own install dir (`/opt/llama-hugs/`, created only via
-approval), own config file name, own store path, own port (8181). No alias,
-symlink, or wrapper touching the old binary. Cutover = repointing clients;
-decommission of llama-swap is a SEPARATE future approval with its own
-checklist — "first day of replacement use" ≠ "removal day."
+**Identity separation:** Llama Hugs = own binary name (`llama-hugs`), own
+install dir (`/opt/llama-hugs/`, created only via approval), own config file
+name, own store path, own port (8181). No alias/symlink/wrapper touching the
+old binary. Cutover = repoint clients; decommission of llama-swap is a
+SEPARATE future approval — "first day of replacement use" ≠ "removal day."
 
-**Read-vs-manage boundary:** during F1 all access to the live router is
-observational reads of documented GET endpoints (`/v1/models`, `/api/*`,
-`/metrics`). Any endpoint that could mutate state or trigger a model load is
-off-limits until Phase F4, and even read traffic stays low-rate polling.
+**Read-vs-manage boundary:** during the MVP the fork is a *parallel* router
+with its own config; it does not proxy or mutate llama-swap. It reads the same
+GGUF paths from disk but loads them under its own process. To avoid GPU
+contention, the MVP validates loading only against small/scratch models or a
+GPU not currently serving production traffic.
 
-**Approval triggers during build:** creating `/opt/llama-hugs/`, any new port
-binding beyond localhost, any systemd unit for Llama Hugs, first non-test
-model load, cutover repoint, decommission — each is a discrete approval event.
-
-
----
-
-## 1. Phase 0 — Decision ledger
-
-### 1a. Decided (round 1 + fork verdict)
-
-| Q | Decision |
-|---|---|
-| Name | **Llama Hugs** |
-| Path | **Fork & replace** (not companion) |
-| Coexistence | Alongside live llama-swap; never modify its files/ports/processes |
-| Pruning | NO pruning feature for now (Q8) |
-| Pricing enrichment | Configurable source slot; ToS check gates any source (Q4) |
-| LAN exposure | Widen to 0.0.0.0 after Phase-local verification passes (Q-LAN: yes) |
-| Version control | Git repo initialized at ~/llama-hugs |
-
-### 1b. Round-2 decisions (PROVISIONAL — each blocks its dependent tasks)
-
-| # | Question | Options / considerations | Recommended default |
-|---|---|---|---|
-| R1 | Fork base & cadence | Fork upstream master (v250-era commit) pinned; sync policy vs upstream's 1–2-day release train (cherry-pick critical fixes only?) | Pin a tagged commit; manual selective merges; document every divergence |
-| R2 | Repo layout | Separate repo for the fork (`~/llama-hugs/hugs/` or fresh clone dir); plan repo stays separate | Fresh clone of upstream renamed `llama-hugs`, remotes: origin=fork repo, upstream=mostlygeek |
-| R3 | Build toolchain location | Go builds are cheap anywhere; Node/npm needed only to build the Svelte UI. Build on wimpy vs build elsewhere + deploy binary+assets | Toolchain on a dev host; wimpy receives built binary + embedded assets. No npm on the live box |
-| R4 | Runtime model during build | Llama Hugs runs read-only observer first (own port, reads llama-swap API/config), gains routing only against TEST configs/models before any cutover | Staged: observer → parallel router on scratch models → cutover |
-| R5 | Storage scope in-fork | Extend upstream's SQLite store (new tables/migrations via goose) vs console-style separate DB; Postgres support later? | Stay on upstream's modernc.org/sqlite store, add migrations in-fork; PG deferred |
-| R6 | Auth model | Upstream has static `apiKeys` bearer tokens. Match exactly for drop-in client compat, then add labels/scopes in-fork | Ship upstream-compatible apiKeys first; scoped/labeled tokens as fast-follow (keeps hermesvm01/clients working through cutover) |
-| R7 | Agent/MCP surface timing | MCP server in-process (Go) vs sidecar; MVP scope | Read tools early, mutation gated; transport HTTP-first per earlier verdict |
-| R8 | Replacement trigger & cutover | What defines "done enough to replace": feature bar (list), dual-run soak period, traffic-switch mechanism (change Hermes clients' endpoint to Llama Hugs' port; llama-swap untouched until decommission day) | Explicit checklist: parity features + N days soak + user sign-off; cutover = repoint clients, not touching llama-swap files |
-| R9 | Feature roadmap ordering | Which of the old §7 features land pre-cutover vs post-cutover | Pre-cutover: persistent store, UI overhaul, search/tags/disk view. Post-cutover: agent mutation API, plugins, benchmarks ingestion, federation |
-| R10 | Divergence budget | Policy limiting how far the fork drifts (every PR either tracks an upstream-file change or is isolated in new packages/dirs) | Isolate new code in separate packages; minimize edits to upstream files to keep merge cost low |
-
-### 1c. Carried-over verdicts that need re-justification in fork context
-
-| Old verdict | Fork status |
-|---|---|
-| Hand-rolled portable storage abstraction (Python) | DEAD — replaced by R5 |
-| PyYAML from day 1 | DEAD — Go yaml libs already in upstream |
-| Stdlib-first Python constraint | DEAD — stack is Go+Svelte per upstream |
-| MCP HTTP-first | SURVIVES as R7 input |
-| Single-file HTML/JS UI question | DEAD — Svelte comes with the fork |
-| Configurable pricing source | SURVIVES (design detail, post-cutover) |
+**Approval triggers:** creating `/opt/llama-hugs/`; first non-localhost port
+bind; any Llama Hugs systemd unit; first non-test model load; cutover repoint;
+decommission. Each is a discrete approval event.
 
 ---
 
-## 2. Phases (fork framing — PROVISIONAL until R-decisions lock)
+## 1. Decision ledger (Phase 0 — resolved)
 
-### Phase F0 — Round-2 decisions + fork setup
-- [ ] R1–R10 answered by user.
-- [ ] Fork created: clone upstream at pinned tag, add fork remote, initial
-      commit untouched, rename binary/UI strings to Llama Hugs.
-- [ ] Reproduce upstream build once (Go test suite green) on the dev host.
+| Item | Decision |
+|---|---|
+| Path | **Fork & replace** llama-swap (not companion) |
+| MVP scope | Minimal: fork works on own paths/port, reads same model files, auth inherited |
+| Auth (R6) | **Use upstream `apiKeys` bearer tokens, unchanged** — no custom auth |
+| Repo (R2) | **In-repo** under `~/llama-hugs/` beside this plan |
+| Build toolchain (R3) | Build on a dev host; deploy binary + embedded assets. **No npm/Go toolchain on wimpy** — upstream embeds the Svelte UI in the binary |
+| Pruning (Q8) | No pruning feature |
+| Pricing (Q4) | Configurable source slot, later; ToS gate before any source |
+| LAN exposure | Widen to 0.0.0.0 after local verification passes |
+| Version control | Git repo initialized at `~/llama-hugs` |
+| Cutover (R8) | Repoint clients when feature-parity + soak signed off; llama-swap untouched |
 
-### Phase F1 — Coexisting observer (zero-risk footprint on wimpy)
-- [ ] **Pre-flight (before any deploy):** baseline checksums recorded for the
-      §0a do-not-touch inventory; verify port 8181 is free on wimpy; verify
-      Llama Hugs can reach llama-swap's read endpoints at planned poll rate;
-      pick self-contained test models for F2 (small GGUFs already on disk,
-      sized to fit the smaller GPU without disturbing production entries).
-      All checks read-only.
-- [ ] Deploy built binary to wimpy under `/opt/llama-hugs/` (new dir; approval
-      gate: creating a new top-level dir on the live box).
-- [ ] Runs on its own port (default proposal 8181, unchanged from prior plan),
-      bind localhost initially; reads llama-swap `/v1/models`, config.yaml,
-      activity store; presents overhauled Svelte UI.
-- [ ] Verification: llama-swap untouched (checksum its binary/config/unit
-      before and after); Llama Hugs shows correct fleet data.
+**Carried-over now-DEAD assumptions** (from the companion plan, superseded):
+hand-rolled Python storage layer, PyYAML, stdlib-first Python, single-file
+HTML/JS UI, companion DB separate from llama-swap store. All replaced by
+upstream's Go + Svelte + modernc.org/sqlite stack.
 
-### Phase F2 — Router parity on scratch
-- [ ] **Test-isolation rule:** F2 configs are a separate config file using a
-      non-production model-ID namespace (e.g. `test-*` prefixes) and dummy or
-      small scratch GGUFs. No production entry, env pin, or group name ever
-      appears in an F2 config, so a passing test cannot become a production load.
-- [ ] Llama Hugs routes TEST models on its own port using its own config copy —
-      groups, env pins, hot-reload semantics replicated from upstream behavior.
-- [ ] Parity tests named per observable behavior: swap-on-request, unload API,
-      ttl auto-unload, profile switching, refusal to load without required env
-      pin, hot-reload pickup of config edits.
-- [ ] No production model ever loaded by Llama Hugs yet.
+---
 
-### Phase F3 — Platform features (post-parity)
-- Persistent store extensions, custom tags, disk/orphan views, benchmark
-  ingestion, MCP surface (R7), auth evolution (R6). Ordering per R9.
+## 2. Phases
 
-### Phase F4 — Cutover (per R8 checklist)
-- [ ] Soak period passed; user sign-off.
-- [ ] Repoint consumers (hermesvm01 etc.) from :8080 to Llama Hugs port.
-- [ ] llama-swap remains installed and untouched; decommission is a separate
-      future approval, never part of cutover.
+### F0 — Fork setup (local, no live-box touch)
+- [ ] Clone upstream `mostlygeek/llama-swap` at a **pinned tag** (v250-era).
+      Add `upstream` remote; fork repo lives in-repo as `~/llama-hugs/hugs/`.
+- [ ] Rename binary/UI strings to Llama Hugs; change default port to 8181 and
+      default config/store paths to Llama Hugs-owned locations.
+- [ ] Reproduce upstream build once on the dev host (Go test suite green,
+      Svelte UI builds and embeds). Confirm a single self-contained binary.
+- [ ] Document the divergence budget (R10): new code isolated in new
+      packages/dirs; minimize edits to upstream files to keep future merges cheap.
+
+### F1 — MVP parallel run (first live-box touch, gated)
+- [ ] **Pre-flight (read-only):** record checksums of the §0a inventory;
+      confirm 8181 is free; confirm Llama Hugs can reach llama-swap's read
+      endpoints (low-rate poll); pick a small scratch GGUF already on disk for
+      the load test.
+- [ ] Create `/opt/llama-hugs/` (approval gate).
+- [ ] Author `llama-hugs` config: same GGUF/mmproj paths as llama-swap entries,
+      own `apiKeys`, own store path, own port 8181. No production model-ID clash.
+- [ ] Deploy built binary; bind localhost first; verify `/v1/models` matches
+      the fleet and a scratch model loads under Llama Hugs.
+- [ ] Verify llama-swap is byte-identical (checksums) before/after.
+- [ ] (Approval) Widen to 0.0.0.0:8181 for hermesvm01 agent access.
+
+### F2 — Iterate on the fork (post-MVP, ordered)
+Each item is independent and stacks on the working MVP. Order is a suggestion,
+not a gate.
+1. **UI overhaul** — modern dark Svelte dashboard: search, sortable columns,
+   capability badges, disk/orphan views, model detail drawer. (Upstream UI is
+   the starting point, not a rewrite-from-scratch.)
+2. **Persistent store extensions** — add tables/migrations (goose, as upstream
+   uses) for custom tags, lifecycle dates, benchmark history, settings. Keeps
+   upstream's SQLite; no separate DB.
+3. **Lifecycle / disk visibility** — orphan-file detection, missing-file
+   detection, stale-model ranking (suggest-only; no auto-delete per Q8).
+4. **Agent surface** — MCP server (HTTP-first) + Hermes skill; read tools
+   first, mutation tools gated behind `apiKeys`. Reuses upstream's mutation
+   endpoints where possible.
+5. **Plugins / enrichment** — pricing + arbitrary enrichment behind a
+   configurable source slot; directory-confined loading.
+6. **Benchmark ingestion** — nightly sweep results → store → leaderboard UI.
+   Preserve OOM-safety rules (unload + pid-exit wait, non-tmpfs paths).
+7. **Federation (stretch)** — multi-server; confirm "nvidia data flywheel"
+   referent before design.
+
+### F3 — Cutover (per R8 checklist)
+- [ ] Feature parity + soak period passed; user sign-off.
+- [ ] Repoint consumers (hermesvm01, etc.) from :8080 to Llama Hugs :8181.
+- [ ] llama-swap remains installed and untouched. Decommission = separate
+      future approval.
 
 ---
 
 ## 3. Constraints (binding)
 
-1. Live-box rules unchanged: approvals for sudo/service/network/dir creation,
-   one change at a time, backups, documented backout.
-2. Coexistence constraint (§0) is absolute during Phases F1–F3.
+1. Live-box rules unchanged: approvals for sudo/service/network/dir creation;
+   one change at a time; backups; documented backout.
+2. Coexistence constraint (§0a) is absolute during F1–F2.
 3. Llama Hugs never binds 8080 while llama-swap is alive.
-4. Every divergence from upstream is recorded (file + reason) — merge-rent
-   control per R10.
-5. GPU safety rules inherited: env pins, --device guards, 64K context, unload +
-   pid-exit wait between large loads, no tmpfs artifacts.
-6. New dependencies (Node build chain etc.) declared per R3 decision; nothing
-   installed on wimpy without approval.
+4. Every divergence from upstream recorded (file + reason) — merge-rent control.
+5. GPU safety rules inherited: env pins, `--device` guards, 64K context,
+   unload + pid-exit wait between large loads, no tmpfs artifacts.
+6. No toolchain installed on wimpy (R3): build off-host, ship binary + assets.
 
 ## 4. Risks
 
 | Risk | Mitigation |
 |------|-----------|
-| Merge burden vs 1–2-day upstream cadence | R1 pinning + R10 isolation policy; cherry-pick only critical fixes |
-| Accidental modification of live llama-swap | Checksum baseline taken at F1 start; verified after every deployment |
-| Port/process collision | Own port forever until decommission day |
-| Node/npm creep onto the live box | R3 default builds off-host |
-| Router regression at cutover | Parity suite (F2) + soak + repoint-not-remove cutover |
-| Scope sprawl (17 features × fork maintenance) | F-phases gate platform work behind parity |
-| GPU/OOM incidents from Llama Hugs loads | Same rules that govern fetch-model.sh; production loads not until F4 |
+| Merge burden vs upstream's 1–2-day cadence | Pinned tag + isolated new code (R10); cherry-pick critical fixes only |
+| Accidental modification of live llama-swap | Checksum baseline; verified after every deployment |
+| Port/process collision | Own port/identity forever until decommission |
+| GPU contention between parallel routers | MVP load-test only on scratch/small models or idle GPU |
+| Router regression at cutover | Parity check + soak + repoint-not-remove |
+| Scope creep | MVP bar is explicit and small; iteration items are opt-in |
 
-## 5. Acceptance criteria (revised)
+## 5. Acceptance criteria
 
-- Llama Hugs and llama-swap run simultaneously on wimpy with zero mutual
-  interference (checksummed).
-- Fleet dashboard parity: every model visible with status/GPU/tags/ctx/size/
-  cutoff/link; search/sort/filter.
-- Stats persist across restarts (in-fork store).
-- Routing parity proven on scratch models before any production load.
+**MVP (F1):**
+- Fork builds to a single binary; runs on 8181 with own config/store/install.
+- Serves the fleet via `/v1/models` reading the same GGUF paths as llama-swap.
+- Auth via upstream `apiKeys` works.
+- A scratch model loads under Llama Hugs; llama-swap confirmed byte-identical.
+
+**Eventual (F2–F3):**
+- UI overhaul, persistent store extensions, disk/orphan views shipped.
+- Agent read + gated mutation via MCP/HTTP.
+- Benchmark leaderboard browsable.
 - Cutover = client repoint only; llama-swap files untouched throughout.
-- Post-cutover: agent surfaces (MCP/HTTP), benchmarks browsable, pricing slot
-  configurable.
 
 ---
 
-*No implementation performed. Next step: user answers R1–R10; nothing in §2
-starts until they're locked.*
+*No implementation performed. Next step: user approves F0 start (local fork
+setup, no live-box touch). F1 is the first gated live-box action.*
