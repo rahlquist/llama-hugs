@@ -1,0 +1,78 @@
+# llama-hugs config.yaml — wimpy parallel router
+# Fork of llama-swap v250, identity-separated:
+#   - port 8181 (llama-swap keeps 8080)
+#   - own store path (/opt/llama-hugs/hugs.sqlite)
+#   - own apiKeys
+#   - model IDs prefixed "hugs-" to avoid production-ID clashes
+#   - SAME GGUF files on disk as llama-swap (no copying)
+#
+groups:
+  amd-r9700:
+    swap: true
+    exclusive: false
+    members:
+      - "hugs-llama3.2-3b"
+      - "hugs-granite-4.1-3b"
+
+models:
+  "hugs-llama3.2-3b":
+    ttl: 300
+    env: ["HIP_VISIBLE_DEVICES=GPU-61fe9ba05af1939a"]
+    name: "Llama Hugs Llama 3.2 3B Instruct"
+    capabilities:
+      in: ["text"]
+      out: ["text"]
+      tools: false
+      context: 65536
+    metadata:
+      source_repo: "bartowski/Llama-3.2-3B-Instruct-GGUF"
+      repo_url: "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF"
+      file_size_bytes: 2019377696
+      file_sha256: "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff"
+      has_checksum: true
+      vision: false
+      mmproj: null
+      mmproj_filename: null
+      mtp: false
+      mtp_flag: null
+      pipeline_tag: "text-generation"
+    cmd: |
+      /usr/local/bin/llama-server
+        --model /home/rahlquist/.cache/llama.cpp/Llama-3.2-3B-Instruct-Q4_K_M.gguf
+        --ctx-size 65536 --n-gpu-layers 99 --device ROCm0
+        --flash-attn on --cache-type-k q4_0 --cache-type-v q4_0
+        --host 0.0.0.0 --port ${PORT} --jinja --metrics
+
+  "hugs-granite-4.1-3b":
+    ttl: 300
+    env: ["HIP_VISIBLE_DEVICES=GPU-61fe9ba05af1939a"]
+    name: "Llama Hugs Granite 4.1 3B"
+    capabilities:
+      in: ["text"]
+      out: ["text"]
+      tools: false
+      context: 65536
+    metadata:
+      source_repo: "ibm-granite/granite-4.1-3b-GGUF"
+      repo_url: "https://huggingface.co/ibm-granite/granite-4.1-3b-GGUF"
+      file_size_bytes: 2100000000
+      file_sha256: null
+      has_checksum: false
+      vision: false
+      mmproj: null
+      mmproj_filename: null
+      mtp: false
+      mtp_flag: null
+      pipeline_tag: "text-generation"
+    cmd: |
+      /usr/local/bin/llama-server
+        --model /home/rahlquist/.cache/llama.cpp/ibm-granite_granite-4.1-3b-Q4_K_M.gguf
+        --ctx-size 65536 --n-gpu-layers 99 --device ROCm0
+        --flash-attn on --cache-type-k q4_0 --cache-type-v q4_0
+        --host 0.0.0.0 --port ${PORT} --jinja --metrics
+
+apiKeys:
+  - "hugs-local-dev-key"
+
+store:
+  path: /opt/llama-hugs/hugs.sqlite
