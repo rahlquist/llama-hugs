@@ -156,7 +156,8 @@ not a gate.
   `/api/hugs/meta` as teal badges alongside derived capability badges.
 
 **F2 follow-ups (not blocking F3, tracked here so they don't vanish):**
-- Inline tag editor on the model detail page (tags currently set via API).
+- ~~Inline tag editor on the model detail page~~ DONE (2026-08-24): pencil-edit
+  field in the Details tab, saves via POST /api/hugs/meta/{model}.
 - ~~Systemd unit for Llama Hugs~~ DONE (2026-08-24): `llama-hugs.service` enabled + active, Restart=on-failure.
 - Real pricing.json content for the enrichment slot. **SHELVED (2026-08-24,
   user decision):** locally-run models have no canonical token price; two
