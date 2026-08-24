@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { Trophy, RefreshCw } from "@lucide/svelte";
+  import { Trophy, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
 
@@ -16,6 +16,8 @@
   let loading = $state(true);
   let error = $state("");
   let filter = $state("");
+  let sortKey = $state<keyof LeaderboardRow>("best_tokens_per_s");
+  let sortAsc = $state(false);
 
   async function load(): Promise<void> {
     loading = true;
@@ -34,15 +36,51 @@
 
   onMount(load);
 
-  const filtered = $derived(
-    filter.trim() === ""
-      ? rows
-      : rows.filter((r) => r.model.toLowerCase().includes(filter.toLowerCase()) || r.task.toLowerCase().includes(filter.toLowerCase())),
-  );
+  function setSort(key: keyof LeaderboardRow): void {
+    if (sortKey === key) {
+      sortAsc = !sortAsc;
+    } else {
+      sortKey = key;
+      // Sensible defaults: text columns ascending, numeric descending.
+      sortAsc = key === "model" || key === "task";
+    }
+  }
+
+  const filtered = $derived.by(() => {
+    const base =
+      filter.trim() === ""
+        ? rows
+        : rows.filter(
+            (r) =>
+              r.model.toLowerCase().includes(filter.toLowerCase()) ||
+              r.task.toLowerCase().includes(filter.toLowerCase()),
+          );
+    const sorted = [...base].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      let cmp: number;
+      if (typeof av === "number" && typeof bv === "number") {
+        cmp = av - bv;
+      } else {
+        cmp = String(av).localeCompare(String(bv));
+      }
+      return sortAsc ? cmp : -cmp;
+    });
+    return sorted;
+  });
 
   function bestForTask(task: string): number {
     return Math.max(...rows.filter((r) => r.task === task).map((r) => r.best_tokens_per_s));
   }
+
+  type SortableColumn = Exclude<keyof LeaderboardRow, never>;
+  const columns: Array<{ key: SortableColumn; label: string; right?: boolean }> = [
+    { key: "model", label: "Model" },
+    { key: "task", label: "Task" },
+    { key: "best_tokens_per_s", label: "Best tokens/s", right: true },
+    { key: "run_count", label: "Runs", right: true },
+    { key: "run_at_unix", label: "Last run" },
+  ];
 </script>
 
 <div class="space-y-4 p-4">
@@ -69,17 +107,27 @@
         <thead class="sticky top-0 bg-background border-b">
           <tr class="text-left text-muted-foreground">
             <th class="px-3 py-2 font-medium">#</th>
-            <th class="px-3 py-2 font-medium">Model</th>
-            <th class="px-3 py-2 font-medium">Task</th>
-            <th class="px-3 py-2 font-medium text-right">Best tokens/s</th>
-            <th class="px-3 py-2 font-medium text-right">Runs</th>
-            <th class="px-3 py-2 font-medium">Last run</th>
+            {#each columns as col (col.key)}
+              <th class="px-3 py-2 font-medium {col.right ? 'text-right' : ''}">
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
+                  onclick={() => setSort(col.key)}
+                >
+                  {col.label}
+                  {#if sortKey === col.key}
+                    {#if sortAsc}<ArrowUp class="size-3.5" />{:else}<ArrowDown class="size-3.5" />{/if}
+                  {:else}
+                    <ArrowUpDown class="size-3.5 opacity-30" />
+                  {/if}
+                </button>
+              </th>
+            {/each}
           </tr>
         </thead>
         <tbody>
-          {#each filtered as r, i (r.model + "/" + r.task)}
+          {#each filtered as r (r.model + "/" + r.task)}
             <tr class="border-b last:border-0 hover:bg-muted/50 {r.best_tokens_per_s === bestForTask(r.task) ? 'bg-muted/30' : ''}">
-              <td class="px-3 py-1.5 text-muted-foreground">{i + 1}</td>
               <td class="px-3 py-1.5 font-mono text-xs">{r.model}</td>
               <td class="px-3 py-1.5">{r.task}</td>
               <td class="px-3 py-1.5 text-right font-medium">
