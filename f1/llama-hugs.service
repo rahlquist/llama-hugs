@@ -1,0 +1,14 @@
+[Unit]
+Description=Llama Hugs model router (llama-swap fork)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rahlquist
+ExecStart=/opt/llama-hugs/llama-hugs -config /opt/llama-hugs/config.yaml -listen 0.0.0.0:8181
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

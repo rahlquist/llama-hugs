@@ -157,7 +157,7 @@ not a gate.
 
 **F2 follow-ups (not blocking F3, tracked here so they don't vanish):**
 - Inline tag editor on the model detail page (tags currently set via API).
-- Systemd unit for Llama Hugs (currently setsid/nohup; dies on reboot).
+- ~~Systemd unit for Llama Hugs~~ DONE (2026-08-24): `llama-hugs.service` enabled + active, Restart=on-failure.
 - Real pricing.json content for the enrichment slot.
 - `tools:` capability audit on production config (needs approval, F1-style gate).
 
