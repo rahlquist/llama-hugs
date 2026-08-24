@@ -68,6 +68,7 @@ decommission. Each is a discrete approval event.
 | Repo (R2) | **In-repo** under `~/llama-hugs/` beside this plan |
 | Build toolchain (R3) | Build on a dev host; deploy binary + embedded assets. **No npm/Go toolchain on wimpy** — upstream embeds the Svelte UI in the binary |
 | Pruning (Q8) | No pruning feature |
+| Federation & pricing | CLOSED from live scope 2026-08-24 — see `f1/handoff-deferred.md` for revival notes |
 | Pricing (Q4) | Configurable source slot, later; ToS gate before any source |
 | LAN exposure | Widen to 0.0.0.0 after local verification passes |
 | Version control | Git repo initialized at `~/llama-hugs` |
@@ -139,7 +140,7 @@ not a gate.
    configurable source slot; directory-confined loading.
 6. **Benchmark ingestion** — nightly sweep results → store → leaderboard UI.
    Preserve OOM-safety rules (unload + pid-exit wait, non-tmpfs paths).
-7. **Federation (stretch)** — DEFERRED; "nvidia data flywheel" referent still unconfirmed.
+7. **Federation (stretch)** — CLOSED as live scope; handed off to `f1/handoff-deferred.md` (2026-08-24 user decision).
 
 **F2 delivery notes (final):** all items shipped on branch `llama-hugs-main`
 (rahlquist/llama-hugs-fork), deployed live on wimpy :8181:
@@ -166,7 +167,7 @@ not a gate.
   matching), or (B) wimpy's true electricity cost per M tokens computed from
   the 724 bench records × GPU wattage × $/kWh. Slot stays empty until then;
   the pricing API degrades gracefully and the dashboard is unaffected.
-- `tools:` capability audit on production config (needs approval, F1-style gate).
+- ~~`tools:` capability audit~~ DONE (2026-08-24) — applied to LLAMA HUGS config only (45/81 entries), via f1/gen-config.py regeneration. Production llama-swap untouched (checksums verified); flags ride into cutover at F3.
 
 ### F3 — Cutover (per R8 checklist)
 - [ ] Feature parity + soak period passed; user sign-off.
