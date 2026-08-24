@@ -13,10 +13,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/chain"
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/event"
-	"github.com/mostlygeek/llama-swap/internal/swaputil"
+	"github.com/rahlquist/llama-hugs/internal/chain"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/event"
+	"github.com/rahlquist/llama-hugs/internal/swaputil"
 )
 
 const inflightUpdateInterval = 250 * time.Millisecond

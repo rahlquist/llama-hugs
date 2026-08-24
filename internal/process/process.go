@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
 )
 
 type ProcessState string
@@ -62,7 +62,7 @@ type Process interface {
 
 	// ServeHTTP forwards requests to the underlying process
 	// Calling it when the process is not ready will result in a
-	// 503 response with a body indicating it is a llama-swap-error
+	// 503 response with a body indicating it is a llama-hugs-error
 	ServeHTTP(http.ResponseWriter, *http.Request)
 
 	// Logger returns the monitor that captures this process's stdout/stderr.

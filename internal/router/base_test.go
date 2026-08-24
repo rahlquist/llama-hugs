@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/logmon"
-	"github.com/mostlygeek/llama-swap/internal/process"
-	"github.com/mostlygeek/llama-swap/internal/router/scheduler"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/process"
+	"github.com/rahlquist/llama-hugs/internal/router/scheduler"
 )
 
 // These tests cover baseRouter's own machinery — the run loop, process
@@ -607,7 +607,7 @@ func TestBaseRouter_ConcurrencyLimitRejectsBeforeLoadingStream(t *testing.T) {
 	if got := w.Header().Get("Content-Type"); got != "application/json" {
 		t.Fatalf("Content-Type=%q want application/json", got)
 	}
-	if strings.Contains(w.Body.String(), "llama-swap loading model") {
+	if strings.Contains(w.Body.String(), "llama-hugs loading model") {
 		t.Fatalf("429 body contains loading stream: %q", w.Body.String())
 	}
 

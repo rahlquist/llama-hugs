@@ -1,4 +1,4 @@
-module github.com/mostlygeek/llama-swap
+module github.com/rahlquist/llama-hugs
 
 go 1.26.1
 

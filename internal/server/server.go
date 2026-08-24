@@ -10,15 +10,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/chain"
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/event"
-	"github.com/mostlygeek/llama-swap/internal/hw"
-	"github.com/mostlygeek/llama-swap/internal/logmon"
-	"github.com/mostlygeek/llama-swap/internal/perf"
-	"github.com/mostlygeek/llama-swap/internal/router"
-	"github.com/mostlygeek/llama-swap/internal/store"
-	"github.com/mostlygeek/llama-swap/internal/swaputil"
+	"github.com/rahlquist/llama-hugs/internal/chain"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/event"
+	"github.com/rahlquist/llama-hugs/internal/hw"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/perf"
+	"github.com/rahlquist/llama-hugs/internal/router"
+	"github.com/rahlquist/llama-hugs/internal/store"
+	"github.com/rahlquist/llama-hugs/internal/swaputil"
 )
 
 // Server owns the HTTP mux, cross-cutting middleware, and the local/peer model
@@ -278,7 +278,7 @@ func (s *Server) routes() {
 		mux.Handle("GET "+path, modelChain.Then(dispatch))
 	}
 
-	// llama-swap API + custom endpoints.
+	// llama-hugs API + custom endpoints.
 	mux.Handle("GET /v1/models", apiChain.ThenFunc(s.handleListModels))
 	mux.Handle("GET /models", apiChain.ThenFunc(s.handleListModels))
 	mux.Handle("GET /logs", apiChain.ThenFunc(s.handleLogs))

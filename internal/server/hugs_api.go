@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mostlygeek/llama-swap/internal/hugs"
+	"github.com/rahlquist/llama-hugs/internal/hugs"
 )
 
 // handleHugsMetaList GET /api/hugs/meta

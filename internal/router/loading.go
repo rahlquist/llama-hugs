@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
 )
 
 var loadingPaths = []string{
@@ -74,7 +74,7 @@ func newLoadingWriter(logger *logmon.Monitor, modelName string, w http.ResponseW
 	s.Header().Set("Connection", "keep-alive")
 	s.WriteHeader(http.StatusOK)
 	s.sendLine("━━━━━")
-	s.sendLine(fmt.Sprintf("llama-swap loading model: %s", modelName))
+	s.sendLine(fmt.Sprintf("llama-hugs loading model: %s", modelName))
 	return s
 }
 

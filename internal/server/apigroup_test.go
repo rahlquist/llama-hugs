@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/cache"
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/hw"
-	"github.com/mostlygeek/llama-swap/internal/store"
-	"github.com/mostlygeek/llama-swap/internal/swaputil"
+	"github.com/rahlquist/llama-hugs/internal/cache"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/hw"
+	"github.com/rahlquist/llama-hugs/internal/store"
+	"github.com/rahlquist/llama-hugs/internal/swaputil"
 )
 
 func TestServer_InflightMiddleware_AddsAndRemovesEntriesAroundRequestHandling(t *testing.T) {
@@ -323,7 +323,7 @@ func TestServer_APIHardware(t *testing.T) {
 		Capture: hw.HardwareCapture{
 			Scope:    hw.CaptureScopeInferenceHost,
 			Method:   hw.CaptureMethodDetected,
-			Detector: &hw.DetectorInfo{Name: "llama-swap", Version: "246"},
+			Detector: &hw.DetectorInfo{Name: "llama-hugs", Version: "246"},
 		},
 		Architecture:    hw.Architecture{Name: "x86_64"},
 		OperatingSystem: hw.OperatingSystem{Family: "linux"},

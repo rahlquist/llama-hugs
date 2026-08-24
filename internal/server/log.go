@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/chain"
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/logmon"
-	"github.com/mostlygeek/llama-swap/internal/swaputil"
+	"github.com/rahlquist/llama-hugs/internal/chain"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/swaputil"
 )
 
 // NewLoggers builds the proxy, upstream, and combined (mux) log monitors,

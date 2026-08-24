@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/logmon"
-	"github.com/mostlygeek/llama-swap/internal/perf"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/perf"
 )
 
 func printSysStat(s perf.SysStat) {

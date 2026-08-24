@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-	matrixdsl "github.com/mostlygeek/llama-swap/internal/matrix"
+	matrixdsl "github.com/rahlquist/llama-hugs/internal/matrix"
 	"gopkg.in/yaml.v3"
 )
 

@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mostlygeek/llama-swap/internal/hugs"
+	"github.com/rahlquist/llama-hugs/internal/hugs"
 )
 
 // hugsModelsCacheRoot resolves the allowed file-operation root (the model

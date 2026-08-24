@@ -1,5 +1,5 @@
 # Define variables for the application
-APP_NAME = llama-swap
+APP_NAME = llama-hugs
 BUILD_DIR = build
 
 # Get closest tag or if that fails (no git repo or no tags) then devel

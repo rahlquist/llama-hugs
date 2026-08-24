@@ -10,7 +10,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/mostlygeek/llama-swap/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
 	"golang.org/x/sys/windows"
 )
 

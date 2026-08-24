@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/logmon"
-	"github.com/mostlygeek/llama-swap/internal/process"
-	"github.com/mostlygeek/llama-swap/internal/swaputil"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/process"
+	"github.com/rahlquist/llama-hugs/internal/swaputil"
 )
 
 // FIFO methods all run on the router's single run-loop goroutine, so these

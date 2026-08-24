@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/event"
-	"github.com/mostlygeek/llama-swap/internal/process"
-	"github.com/mostlygeek/llama-swap/internal/swaputil"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/event"
+	"github.com/rahlquist/llama-hugs/internal/process"
+	"github.com/rahlquist/llama-hugs/internal/swaputil"
 )
 
 // modelRecord is one entry in the OpenAI-compatible /v1/models listing.
@@ -157,7 +157,7 @@ func (s *Server) handleListModels(w http.ResponseWriter, r *http.Request) {
 			ID:          id,
 			Object:      "model",
 			Created:     created,
-			OwnedBy:     "llama-swap",
+			OwnedBy:     "llama-hugs",
 			Name:        strings.TrimSpace(name),
 			Description: strings.TrimSpace(description),
 			Status:      map[string]any{"value": status},

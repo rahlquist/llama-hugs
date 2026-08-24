@@ -71,7 +71,7 @@ models:
 func TestConfig_StorePath(t *testing.T) {
 	t.Run("path accepted in writable directory", func(t *testing.T) {
 		dir := t.TempDir()
-		storePath := filepath.Join(dir, "llama-swap.db")
+		storePath := filepath.Join(dir, "llama-hugs.db")
 		cfg, err := LoadConfigFromReader(strings.NewReader(`
 store:
   path: ` + storePath + `
@@ -83,7 +83,7 @@ store:
 
 	t.Run("existing writable file accepted", func(t *testing.T) {
 		dir := t.TempDir()
-		storePath := filepath.Join(dir, "llama-swap.db")
+		storePath := filepath.Join(dir, "llama-hugs.db")
 		require.NoError(t, os.WriteFile(storePath, []byte("{}"), 0644))
 
 		cfg, err := LoadConfigFromReader(strings.NewReader(`
@@ -98,7 +98,7 @@ store:
 	t.Run("non-existent directory rejected", func(t *testing.T) {
 		_, err := LoadConfigFromReader(strings.NewReader(`
 store:
-  path: /no/such/dir/llama-swap.db
+  path: /no/such/dir/llama-hugs.db
 `))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not writable")

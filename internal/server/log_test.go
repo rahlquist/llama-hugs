@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
 )
 
 func TestServer_NewLoggers(t *testing.T) {

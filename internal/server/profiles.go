@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mostlygeek/llama-swap/internal/chain"
-	"github.com/mostlygeek/llama-swap/internal/swaputil"
+	"github.com/rahlquist/llama-hugs/internal/chain"
+	"github.com/rahlquist/llama-hugs/internal/swaputil"
 )
 
 // CreateProfileMiddleware applies the request's active profile snapshot before

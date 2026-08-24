@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mostlygeek/llama-swap/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/config"
 )
 
 func TestReplaceRequestModel(t *testing.T) {

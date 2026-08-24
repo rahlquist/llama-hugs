@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/event"
-	"github.com/mostlygeek/llama-swap/internal/logmon"
-	"github.com/mostlygeek/llama-swap/internal/process"
-	"github.com/mostlygeek/llama-swap/internal/router"
-	"github.com/mostlygeek/llama-swap/internal/store"
-	"github.com/mostlygeek/llama-swap/internal/swaputil"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/event"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/process"
+	"github.com/rahlquist/llama-hugs/internal/router"
+	"github.com/rahlquist/llama-hugs/internal/store"
+	"github.com/rahlquist/llama-hugs/internal/swaputil"
 )
 
 // stubRouter is a minimal router.LocalRouter for Server dispatch tests.

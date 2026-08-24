@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/hugs"
+	"github.com/rahlquist/llama-hugs/internal/hugs"
 )
 
 // hugsPricingEntry is one model's pricing facts from the configured source.

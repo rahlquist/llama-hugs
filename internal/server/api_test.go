@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/logmon"
-	"github.com/mostlygeek/llama-swap/internal/process"
-	"github.com/mostlygeek/llama-swap/internal/swaputil"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/process"
+	"github.com/rahlquist/llama-hugs/internal/swaputil"
 )
 
 func TestServer_HandleListModels(t *testing.T) {

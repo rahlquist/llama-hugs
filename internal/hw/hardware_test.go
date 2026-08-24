@@ -134,7 +134,7 @@ func validTestSnapshot() HardwareSnapshot {
 		Capture: HardwareCapture{
 			Scope:    CaptureScopeInferenceHost,
 			Method:   CaptureMethodDetected,
-			Detector: &DetectorInfo{Name: "llama-swap", Version: "test"},
+			Detector: &DetectorInfo{Name: "llama-hugs", Version: "test"},
 		},
 		Architecture:    Architecture{Name: "x86_64"},
 		OperatingSystem: OperatingSystem{Family: "linux"},

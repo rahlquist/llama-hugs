@@ -16,16 +16,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mostlygeek/llama-swap/internal/config"
-	"github.com/mostlygeek/llama-swap/internal/event"
-	"github.com/mostlygeek/llama-swap/internal/hw"
-	"github.com/mostlygeek/llama-swap/internal/logmon"
-	"github.com/mostlygeek/llama-swap/internal/perf"
-	"github.com/mostlygeek/llama-swap/internal/process"
-	"github.com/mostlygeek/llama-swap/internal/server"
-	"github.com/mostlygeek/llama-swap/internal/store"
-	"github.com/mostlygeek/llama-swap/internal/swaputil"
-	"github.com/mostlygeek/llama-swap/internal/watcher"
+	"github.com/rahlquist/llama-hugs/internal/config"
+	"github.com/rahlquist/llama-hugs/internal/event"
+	"github.com/rahlquist/llama-hugs/internal/hw"
+	"github.com/rahlquist/llama-hugs/internal/logmon"
+	"github.com/rahlquist/llama-hugs/internal/perf"
+	"github.com/rahlquist/llama-hugs/internal/process"
+	"github.com/rahlquist/llama-hugs/internal/server"
+	"github.com/rahlquist/llama-hugs/internal/store"
+	"github.com/rahlquist/llama-hugs/internal/swaputil"
+	"github.com/rahlquist/llama-hugs/internal/watcher"
 )
 
 var (
@@ -131,7 +131,7 @@ func main() {
 
 	// Hardware describes the inference host and remains stable for the life of
 	// this process, including config reloads. Detection is best effort so an
-	// unavailable platform probe never prevents llama-swap from starting.
+	// unavailable platform probe never prevents llama-hugs from starting.
 	var hardwareSnapshot *hw.HardwareSnapshot
 	detectCtx, detectCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	detectedHardware, detectErr := hw.Detect(detectCtx, version)
@@ -143,7 +143,7 @@ func main() {
 	}
 
 	// On Windows, bind the process tree to a Job Object so every upstream
-	// process is reaped when llama-swap exits — even on a forced kill. No-op
+	// process is reaped when llama-hugs exits — even on a forced kill. No-op
 	// elsewhere. Non-fatal: a failure just falls back to per-process teardown.
 	if err := process.SetupTreeCleanup(); err != nil {
 		proxyLog.Warnf("failed to set up process tree cleanup: %v", err)
@@ -320,10 +320,10 @@ func main() {
 	go func() {
 		var startErr error
 		if useTLS {
-			proxyLog.Infof("llama-swap listening with TLS on https://%s", listenAddr)
+			proxyLog.Infof("llama-hugs listening with TLS on https://%s", listenAddr)
 			startErr = httpServer.ListenAndServeTLS(*flagCertFile, *flagKeyFile)
 		} else {
-			proxyLog.Infof("llama-swap listening on http://%s", listenAddr)
+			proxyLog.Infof("llama-hugs listening on http://%s", listenAddr)
 			startErr = httpServer.ListenAndServe()
 		}
 		if startErr != nil && !errors.Is(startErr, http.ErrServerClosed) {
@@ -334,7 +334,7 @@ func main() {
 
 	if !swaputil.IsLoopbackAddr(listenAddr) {
 		_, port, _ := net.SplitHostPort(listenAddr)
-		proxyLog.Infof("llama-swap is reachable by all hosts on the network, use -listen localhost:%s to restrict to loopback only", port)
+		proxyLog.Infof("llama-hugs is reachable by all hosts on the network, use -listen localhost:%s to restrict to loopback only", port)
 	}
 
 	exitChan := make(chan struct{})

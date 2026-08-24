@@ -32,7 +32,7 @@ describe("hardware api", () => {
     const snapshot = {
       schema_version: 1,
       captured_at: "2026-08-03T12:00:00Z",
-      capture: { scope: "inference_host", method: "detected", detector: { name: "llama-swap", version: "246" } },
+      capture: { scope: "inference_host", method: "detected", detector: { name: "llama-hugs", version: "246" } },
       architecture: { name: "x86_64" },
       operating_system: { family: "linux", name: "Ubuntu", version: "24.04", kernel: "6.8" },
       environment: { kind: "native", name: null, version: null },
