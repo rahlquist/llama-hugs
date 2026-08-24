@@ -121,7 +121,7 @@ deferred to later iteration (UI overhaul, store extension). Confirms the
 - [x] Verify llama-swap is byte-identical (checksums) before/after.
 - [x] (Approval) Widen to 0.0.0.0:8181 for hermesvm01 agent access.
 
-### F2 — Iterate on the fork (post-MVP, ordered)  [COMPLETE except UI + federation]
+### F2 — Iterate on the fork (post-MVP, ordered)  [COMPLETE 2026-08-24]
 Each item is independent and stacks on the working MVP. Order is a suggestion,
 not a gate.
 1. **UI overhaul** — modern dark Svelte dashboard: search, sortable columns,
@@ -141,7 +141,25 @@ not a gate.
    Preserve OOM-safety rules (unload + pid-exit wait, non-tmpfs paths).
 7. **Federation (stretch)** — DEFERRED; "nvidia data flywheel" referent still unconfirmed.
 
-**F2 delivery notes:** store extensions/disk-orphan/pricing-slot/bench ingestion all shipped as `internal/hugs` package + `/api/hugs/*` endpoints (3 commits on branch `llama-hugs-main`, pushed to rahlquist/llama-hugs-fork). Agent surface (item 4) delivered as an HTTP skill doc (`f1/skill-llama-hugs.md`) rather than a separate MCP server — the fork's existing authenticated HTTP API already covers every agent need. Bench data ingested live from the nightly sweep DB: 724 records / 232 model-task pairs serving a real leaderboard. UI overhaul (item 1) remains the only open F2 item.
+**F2 delivery notes (final):** all items shipped on branch `llama-hugs-main`
+(rahlquist/llama-hugs-fork), deployed live on wimpy :8181:
+- Store extensions, disk/orphan scan, pricing slot, bench ingestion as the
+  `internal/hugs` package + `/api/hugs/*` endpoints.
+- Bench data ingested from the nightly sweep DB: 724 records / 232 model-task
+  pairs serving a real leaderboard.
+- Agent surface delivered as an HTTP skill doc (`f1/skill-llama-hugs.md`) —
+  no separate MCP server; the authenticated HTTP API covers every agent need.
+- UI: new Disk & Orphans page (checkbox select-all, flag-for-deletion flags
+  persisted server-side, guarded immediate delete restricted to .gguf under
+  the cache root) and Benchmark Leaderboard page (sortable columns, per-task
+  best highlighting, filter). Model rows render freeform custom tags from
+  `/api/hugs/meta` as teal badges alongside derived capability badges.
+
+**F2 follow-ups (not blocking F3, tracked here so they don't vanish):**
+- Inline tag editor on the model detail page (tags currently set via API).
+- Systemd unit for Llama Hugs (currently setsid/nohup; dies on reboot).
+- Real pricing.json content for the enrichment slot.
+- `tools:` capability audit on production config (needs approval, F1-style gate).
 
 ### F3 — Cutover (per R8 checklist)
 - [ ] Feature parity + soak period passed; user sign-off.
@@ -189,5 +207,5 @@ not a gate.
 
 ---
 
-*No implementation performed. Next step: user approves F0 start (local fork
-setup, no live-box touch). F1 is the first gated live-box action.*
+*F0–F2 complete (2026-08-24). Llama Hugs live on wimpy :8181 alongside
+untouched llama-swap :8080. F3 cutover awaits user sign-off per R8.*
