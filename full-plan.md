@@ -158,7 +158,13 @@ not a gate.
 **F2 follow-ups (not blocking F3, tracked here so they don't vanish):**
 - Inline tag editor on the model detail page (tags currently set via API).
 - ~~Systemd unit for Llama Hugs~~ DONE (2026-08-24): `llama-hugs.service` enabled + active, Restart=on-failure.
-- Real pricing.json content for the enrichment slot.
+- Real pricing.json content for the enrichment slot. **SHELVED (2026-08-24,
+  user decision):** locally-run models have no canonical token price; two
+  candidate interpretations documented for a future revision — (A) hosted-
+  equivalent rates from OpenRouter per model twin (requires ToS check + name
+  matching), or (B) wimpy's true electricity cost per M tokens computed from
+  the 724 bench records × GPU wattage × $/kWh. Slot stays empty until then;
+  the pricing API degrades gracefully and the dashboard is unaffected.
 - `tools:` capability audit on production config (needs approval, F1-style gate).
 
 ### F3 — Cutover (per R8 checklist)
