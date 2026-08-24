@@ -215,5 +215,9 @@ not a gate.
 
 ---
 
-*F0–F2 complete (2026-08-24). Llama Hugs live on wimpy :8181 alongside
-untouched llama-swap :8080. F3 cutover awaits user sign-off per R8.*
+*F0–F2 complete; PORT SWAP executed 2026-08-24 (early F3): Llama Hugs is now
+PRIMARY on wimpy :8080 (keyless, unprefixed aliases for zero client
+reconfig); old llama-swap moved to :8282, untouched otherwise (checksums
+verified). Auth disabled as part of swap — reinstate only if mutation
+surface grows beyond current scope. Remaining F3 item: formal consumer
+inventory + soak confirmation, then optional decommission of llama-swap.*

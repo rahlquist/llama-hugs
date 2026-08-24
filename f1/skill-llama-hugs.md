@@ -5,11 +5,9 @@ description: Drive the Llama Hugs model router (llama-swap fork) on wimpy over H
 
 # Llama Hugs — agent HTTP API
 
-Llama Hugs is the llama-swap-fork router on wimpy.home.lan:8181. All requests
-need the bearer key (ask the user; never hardcode it). Base URL:
-`http://wimpy.home.lan:8181`
-
-Every example: `-H "Authorization: Bearer $HUGS_KEY"`.
+Llama Hugs is the PRIMARY router on wimpy.home.lan:8080 (since 2026-08-24 port
+swap; old llama-swap moved to :8282). No API key required — keyless like the
+production router it replaced. Base URL: `http://wimpy.home.lan:8080`
 
 ## Read tools
 
@@ -44,11 +42,11 @@ curl -X POST http://wimpy.home.lan:8181/v1/chat/completions \
   -d '{"model":"hugs-llama3.2-3b","messages":[{"role":"user","content":"hi"}]}'
 ```
 
-Model IDs are `hugs-`-prefixed. The full fleet config mirrors production
-llama-swap entries; see /v1/models for what this instance knows.
+Model IDs match production names (unprefixed aliases registered); `hugs-`
+prefixed forms also work.
 
 ## Rules
 
-- Never touch llama-swap on :8080 — that is the production router.
+- Old llama-swap lives on :8282 — do not route production traffic there.
 - Mutating calls are logged server-side; prefer reads.
 - Large-model sequential loads must wait for unload completion (OOM history).
