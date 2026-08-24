@@ -340,6 +340,9 @@ func (s *Server) routes() {
 	mux.Handle("POST /api/hugs/settings", apiChain.ThenFunc(s.handleHugsSettingsSet))
 	mux.Handle("POST /api/hugs/bench/ingest", apiChain.ThenFunc(s.handleHugsBenchIngest))
 	mux.Handle("GET /api/hugs/bench/leaderboard", apiChain.ThenFunc(s.handleHugsBenchLeaderboard))
+	mux.Handle("GET /api/hugs/files/flags", apiChain.ThenFunc(s.handleHugsFileFlagsGet))
+	mux.Handle("POST /api/hugs/files/flags", apiChain.ThenFunc(s.handleHugsFileFlagsSet))
+	mux.Handle("POST /api/hugs/files/delete", apiChain.ThenFunc(s.handleHugsFilesDelete))
 
 	s.mux = mux
 	s.handler = chain.New(CreateRequestLogMiddleware(s.proxylog), CreateCORSMiddleware()).Then(mux)
