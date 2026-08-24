@@ -1,6 +1,6 @@
 <script lang="ts">
   import { link } from "svelte-spa-router";
-  import { FerrisWheel, Boxes, Activity, ScrollText, Gauge, Cpu, Sun, Moon, Monitor, ChevronRight, Settings } from "@lucide/svelte";
+  import { FerrisWheel, Boxes, Activity, ScrollText, Gauge, Cpu, HardDrive, Trophy, Sun, Moon, Monitor, ChevronRight, Settings } from "@lucide/svelte";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import * as Collapsible from "$lib/components/ui/collapsible/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -200,6 +200,28 @@
                 <a href="/hardware" use:link {...props}>
                   <Cpu />
                   <span>Hardware</span>
+                </a>
+              {/snippet}
+            </Sidebar.MenuButton>
+          </Sidebar.MenuItem>
+
+          <!-- Llama Hugs extensions (fork-added) -->
+          <Sidebar.MenuItem>
+            <Sidebar.MenuButton isActive={isActive("/hugs/disk", $currentRoute)} tooltipContent="Disk & Orphans">
+              {#snippet child({ props })}
+                <a href="/hugs/disk" use:link {...props}>
+                  <HardDrive />
+                  <span>Disk &amp; Orphans</span>
+                </a>
+              {/snippet}
+            </Sidebar.MenuButton>
+          </Sidebar.MenuItem>
+          <Sidebar.MenuItem>
+            <Sidebar.MenuButton isActive={isActive("/hugs/bench", $currentRoute)} tooltipContent="Benchmarks">
+              {#snippet child({ props })}
+                <a href="/hugs/bench" use:link {...props}>
+                  <Trophy />
+                  <span>Benchmarks</span>
                 </a>
               {/snippet}
             </Sidebar.MenuButton>

@@ -40,6 +40,8 @@
     "/settings": wrap({ asyncComponent: () => import("./routes/Settings.svelte"), loadingComponent: RouteLoading }),
     "/performance": wrap({ asyncComponent: () => import("./routes/Performance.svelte"), loadingComponent: RouteLoading }),
     "/hardware": wrap({ asyncComponent: () => import("./routes/Hardware.svelte"), loadingComponent: RouteLoading }),
+    "/hugs/disk": wrap({ asyncComponent: () => import("./routes/HugsDisk.svelte"), loadingComponent: RouteLoading }),
+    "/hugs/bench": wrap({ asyncComponent: () => import("./routes/HugsBench.svelte"), loadingComponent: RouteLoading }),
     "*": wrap({ asyncComponent: () => import("./routes/Activity.svelte"), loadingComponent: RouteLoading }),
   };
 
