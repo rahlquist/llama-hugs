@@ -24,9 +24,20 @@
   import { modelServerPath } from "../lib/modelUtils";
 
   let unloadingAll = $state(false);
+  let hugTags = $state<Record<string, string>>({});
 
   onMount(() => {
     void fetchPlaygroundModels();
+    void fetch("/api/hugs/meta")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows: Array<{ model_id: string; tags: string }>) => {
+        const map: Record<string, string> = {};
+        for (const row of rows ?? []) {
+          if (row.tags) map[row.model_id] = row.tags;
+        }
+        hugTags = map;
+      })
+      .catch(() => {}); // tags are decoration; never block the model list
   });
 
   let visibleModels = $derived(
@@ -82,6 +93,15 @@
         <div class="hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
           {#each badges as badge (badge.key)}
             <Tag class={`px-1.5 text-[0.625rem] ${capabilityBadgeClass[badge.key] ?? ""}`}>{badge.label}</Tag>
+          {/each}
+          {#each (hugTags[model.id] ?? "").split(",").map((t) => t.trim()).filter((t) => t !== "") as hugTag (hugTag)}
+            <Tag class="bg-teal-500/15 text-teal-700 dark:text-teal-300 px-1.5 text-[0.625rem]">{hugTag}</Tag>
+          {/each}
+        </div>
+      {:else if hugTags[model.id]}
+        <div class="hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
+          {#each (hugTags[model.id] ?? "").split(",").map((t) => t.trim()).filter((t) => t !== "") as hugTag (hugTag)}
+            <Tag class="bg-teal-500/15 text-teal-700 dark:text-teal-300 px-1.5 text-[0.625rem]">{hugTag}</Tag>
           {/each}
         </div>
       {/if}
