@@ -106,7 +106,6 @@
       <table class="w-full text-sm">
         <thead class="sticky top-0 bg-background border-b">
           <tr class="text-left text-muted-foreground">
-            <th class="px-3 py-2 font-medium">#</th>
             {#each columns as col (col.key)}
               <th class="px-3 py-2 font-medium {col.right ? 'text-right' : ''}">
                 <button
