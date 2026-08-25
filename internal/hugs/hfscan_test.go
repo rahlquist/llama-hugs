@@ -11,6 +11,15 @@ import (
 	"github.com/rahlquist/llama-hugs/internal/config"
 )
 
+func TestNormalizeSearchNameStripsCUDASuffix(t *testing.T) {
+	if got := NormalizeSearchName("qwen3.5-9b-q6_k-cuda"); got != "qwen3.5-9b-q6_k" {
+		t.Fatalf("CUDA suffix not stripped: %q", got)
+	}
+	if got := NormalizeSearchName("Qwen3.5-9B-CUDA"); got != "qwen3.5-9b" {
+		t.Fatalf("case-insensitive CUDA suffix not stripped: %q", got)
+	}
+}
+
 func TestExtractHFRefs(t *testing.T) {
 	cases := []struct {
 		name string

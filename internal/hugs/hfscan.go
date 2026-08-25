@@ -304,7 +304,13 @@ type HFSearchResult struct {
 // stable comparison. Punctuation is preserved: exact equality plus
 // token-boundary prefix rules (see SelectStrongHFMatch) decide the verdict.
 func NormalizeSearchName(s string) string {
-	return strings.ToLower(strings.TrimSpace(s))
+	s = strings.TrimSpace(s)
+	// CUDA is a local deployment suffix, not part of the upstream model
+	// identity. Strip it before querying or comparing Hub search results.
+	if len(s) >= len("-cuda") && strings.EqualFold(s[len(s)-len("-cuda"):], "-cuda") {
+		s = s[:len(s)-len("-cuda")]
+	}
+	return strings.ToLower(s)
 }
 
 // ModelSearchNames returns the non-empty, de-duplicated searchable names for
