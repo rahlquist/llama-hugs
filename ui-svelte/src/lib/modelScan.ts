@@ -2,10 +2,13 @@
 //
 // The rescan UI calls POST /api/hugs/hf/rescan?verify=1, which scans the local
 // HF hub cache, matches cached repos against config references, and (with
-// verify=1) queries the PUBLIC Hugging Face API for every configured model
-// that references an HF repo — exact-matching each repo id and deriving
-// conservative capability findings (vision/audio/image/tools/MTP). These
-// helpers turn that raw response into the summary the dashboard renders.
+// verify=1) queries the PUBLIC Hugging Face API for every configured model.
+// Models whose cmd references an HF repo are exact-matched by repo id; models
+// without one fall back to HF Hub name search over their model id, display
+// name and aliases, selecting the best strong match and deriving conservative
+// capability findings (vision/audio/image/tools/MTP) from the chosen repo's
+// metadata. These helpers turn that raw response into the summary the
+// dashboard renders.
 
 export interface HFRepoFile {
   name: string;

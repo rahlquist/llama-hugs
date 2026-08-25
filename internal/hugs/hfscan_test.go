@@ -92,6 +92,113 @@ func TestExtractConfigHFRefsSortsByModelID(t *testing.T) {
 	}
 }
 
+func TestModelSearchNames(t *testing.T) {
+	mc := config.ModelConfig{
+		Name:    "Qwen3.5-9B",
+		Aliases: []string{"qwen3.5-9b", "  qwen-9b  ", ""},
+	}
+	names := ModelSearchNames("qwen3.5-9b", mc)
+	// Model id wins the dedupe against the identical display name and alias;
+	// the distinct alias is kept, empties and whitespace are dropped.
+	if !reflect.DeepEqual(names, []string{"qwen3.5-9b", "qwen-9b"}) {
+		t.Fatalf("ModelSearchNames: %+v", names)
+	}
+	// Display name is used when the id is not a useful search string.
+	names = ModelSearchNames("m1", config.ModelConfig{Name: "Hermes-4-70B"})
+	if !reflect.DeepEqual(names, []string{"m1", "Hermes-4-70B"}) {
+		t.Fatalf("ModelSearchNames with name: %+v", names)
+	}
+	// Aliases alone are searchable.
+	names = ModelSearchNames("local-1", config.ModelConfig{Aliases: []string{"hermes-4"}})
+	if !reflect.DeepEqual(names, []string{"local-1", "hermes-4"}) {
+		t.Fatalf("ModelSearchNames with alias: %+v", names)
+	}
+	// Nothing searchable at all → nil (callers must report no_ref).
+	if names := ModelSearchNames("", config.ModelConfig{}); names != nil {
+		t.Fatalf("expected nil names, got %+v", names)
+	}
+}
+
+func TestSelectStrongHFMatch(t *testing.T) {
+	results := func(ids ...string) []HFSearchResult {
+		out := make([]HFSearchResult, 0, len(ids))
+		for _, id := range ids {
+			out = append(out, HFSearchResult{ID: id})
+		}
+		return out
+	}
+	cases := []struct {
+		name    string
+		query   string
+		results []HFSearchResult
+		want    string // expected repo id; "" means no match
+	}{
+		{
+			name:    "exact repo id wins",
+			query:   "Qwen/Qwen3.5-9B",
+			results: results("Qwen/Qwen3.5-9B-Instruct", "qwen/qwen3.5-9b"),
+			want:    "qwen/qwen3.5-9b",
+		},
+		{
+			name:    "exact name segment beats prefix",
+			query:   "qwen3.5-9b",
+			results: results("Qwen/Qwen3.5-9B-Instruct", "someone/Qwen3.5-9B"),
+			want:    "someone/Qwen3.5-9B",
+		},
+		{
+			name:    "token-boundary prefix match",
+			query:   "qwen3.5-9b",
+			results: results("Qwen/Qwen3.5-9B-Instruct", "Qwen/Qwen3.5-9B-AWQ"),
+			want:    "Qwen/Qwen3.5-9B-Instruct", // relevance order kept among equal ranks
+		},
+		{
+			name:    "no token boundary on suffix is not a match",
+			query:   "qwen3.5-9b",
+			results: results("org/qwen3.5-9bx", "org/qwen3.5-9bber"),
+			want:    "",
+		},
+		{
+			name:    "unrelated results match nothing",
+			query:   "qwen3.5-9b",
+			results: results("meta-llama/Llama-3.1-8B", "mistralai/Mistral-7B-v0.3"),
+			want:    "",
+		},
+		{
+			name:    "case and whitespace insensitive",
+			query:   "  QWEN3.5-9B ",
+			results: results("Qwen/Qwen3.5-9B"),
+			want:    "Qwen/Qwen3.5-9B",
+		},
+		{
+			name:    "empty query never matches",
+			query:   "",
+			results: results("Qwen/Qwen3.5-9B"),
+			want:    "",
+		},
+		{
+			name:    "empty result set never matches",
+			query:   "qwen3.5-9b",
+			results: results(),
+			want:    "",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			best, rank, ok := SelectStrongHFMatch(tc.query, tc.results)
+			if tc.want == "" {
+				if ok {
+					t.Fatalf("expected no match, got %+v (rank %d)", best, rank)
+				}
+				return
+			}
+			if !ok || best.ID != tc.want {
+				t.Fatalf("SelectStrongHFMatch(%q, %+v) = %+v rank=%d ok=%v, want %q",
+					tc.query, tc.results, best, rank, ok, tc.want)
+			}
+		})
+	}
+}
+
 func TestScanHFHubCache(t *testing.T) {
 	root := t.TempDir()
 	write := func(rel string, n int) {

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -67,14 +68,52 @@ func fetchHFModelMetaPublic(ctx context.Context, repoID string) (*hugs.HFModelMe
 	return &meta, resp.StatusCode, nil
 }
 
+// hfSearchLimit bounds the number of candidates requested per HF Hub search.
+const hfSearchLimit = 20
+
+// hfModelSearcher searches the PUBLIC Hugging Face Hub model API
+// (GET /api/models?search=...) for candidate repo ids matching query. It
+// returns the raw result list on success (HTTP 200); httpStatus is the
+// response status on misses (401/403/404); on network or decode errors err
+// is non-nil and httpStatus is 0. No Authorization header is ever set, so no
+// token can leak into the request.
+type hfModelSearcher func(ctx context.Context, query string, limit int) ([]hugs.HFSearchResult, int, error)
+
+// hfSearchURL builds the public HF Hub model search URL for query.
+func hfSearchURL(query string, limit int) string {
+	return "https://huggingface.co/api/models?search=" + url.QueryEscape(query) + "&limit=" + strconv.Itoa(limit)
+}
+
+func searchHFModelsPublic(ctx context.Context, query string, limit int) ([]hugs.HFSearchResult, int, error) {
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, hfSearchURL(query, limit), nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, resp.StatusCode, nil
+	}
+	var results []hugs.HFSearchResult
+	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
+		return nil, resp.StatusCode, fmt.Errorf("decode hf search: %w", err)
+	}
+	return results, resp.StatusCode, nil
+}
+
 // hfVerifySummary aggregates the per-model HF verification outcomes.
 type hfVerifySummary struct {
 	Checked      int                  `json:"checked"`      // models queried against the public HF API
 	Matched      int                  `json:"matched"`      // repo exists (200)
-	Unmatched    int                  `json:"unmatched"`    // exact 404 misses
+	Unmatched    int                  `json:"unmatched"`    // exact 404 misses and no-strong-match searches
 	Unauthorized int                  `json:"unauthorized"` // 401/403 — gated or missing, unverifiable tokenless
 	Errors       int                  `json:"errors"`       // network/timeout/unexpected
-	NoRef        int                  `json:"no_ref"`       // models with no HF repo reference (not queried)
+	NoRef        int                  `json:"no_ref"`       // no repo ref and no searchable name/alias (not queried)
 	Models       []hugs.HFModelResult `json:"models"`       // one entry per configured model
 }
 
@@ -105,13 +144,17 @@ type hfRescanResponse struct {
 // reference".
 //
 // ?verify=1 additionally queries the PUBLIC HF model API for each configured
-// model whose cmd references an HF repo, exact-matching each repo id. For
+// model. Models whose cmd references an HF repo are exact-matched by repo id;
+// models without a repo reference fall back to HF Hub name search over their
+// model id, display name and aliases, selecting the best strong match. For
 // every queried model it derives conservative capability findings
 // (vision/audio/image/tools/MTP) from the returned metadata, records them as
 // namespaced hf:* tags on the per-model hugs_model_meta row (preserving user
-// tags, never touching config), and reports unmatched exactly: 404 → unmatched,
-// 401/403 → unauthorized (gated or missing, unverifiable tokenless). No token
-// is ever sent, and verification failures never fail the scan.
+// tags, never touching config), and reports unmatched exactly: 404 or no
+// strong search match → unmatched, 401/403 → unauthorized (gated or missing,
+// unverifiable tokenless). Models with no repo reference AND no searchable
+// name/alias are reported as no_ref and never touch the network. No token is
+// ever sent, and verification failures never fail the scan.
 //
 // Safety: this endpoint never writes config (the codebase has no config save
 // path). Its only persistence is (1) a scan summary in hugs_settings via the
@@ -203,15 +246,24 @@ func (s *Server) handleHugsHFRescan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, out)
 }
 
-// verifyModelsAgainstHF exact-matches every configured model against the
-// public HF API (via the injectable fetcher) with bounded concurrency,
-// deduplicating fetches per unique repo id. Models whose cmd carries an HF
-// repo reference are queried; models without one are reported as no_ref and
-// never touch the network.
+// verifyModelsAgainstHF verifies every configured model against the public HF
+// API (via the injectable fetcher) with bounded concurrency, deduplicating
+// fetches per unique repo id. Models whose cmd carries an HF repo reference
+// are queried by exact repo id. Models without one fall back to HF Hub name
+// search over their model id, display name and aliases (ModelSearchNames):
+// the best strong match (exact id, exact name segment, or token-boundary
+// prefix — see SelectStrongHFMatch) is selected, its metadata fetched, and
+// capabilities inferred from the same signals as explicit refs. A model with
+// no strong match is reported as unmatched; a model with no searchable
+// name/alias at all is reported as no_ref and never touches the network.
 func (s *Server) verifyModelsAgainstHF(ctx context.Context, models map[string]config.ModelConfig, refs []hugs.HFConfigRef) *hfVerifySummary {
 	fetch := s.hfFetch
 	if fetch == nil {
 		fetch = fetchHFModelMetaPublic
+	}
+	search := s.hfSearch
+	if search == nil {
+		search = searchHFModelsPublic
 	}
 
 	// First ref per model is authoritative for the scan.
@@ -222,25 +274,61 @@ func (s *Server) verifyModelsAgainstHF(ctx context.Context, models map[string]co
 		}
 	}
 
-	// Unique repos to fetch (case-insensitive dedupe).
+	// Per-model plan: an explicit repo ref, or the searchable names to fall
+	// back to. A model with neither ref nor names is a true no_ref.
+	type modelPlan struct {
+		ref    hugs.HFConfigRef
+		hasRef bool
+		names  []string
+	}
+	plans := map[string]modelPlan{}
+	for id, mc := range models {
+		if ref, ok := refByModel[id]; ok {
+			plans[id] = modelPlan{ref: ref, hasRef: true}
+		} else {
+			plans[id] = modelPlan{names: hugs.ModelSearchNames(id, mc)}
+		}
+	}
+
+	// Unique explicit repos to fetch (case-insensitive dedupe).
 	uniqueRepos := []string{}
 	seenRepo := map[string]bool{}
-	for _, ref := range refByModel {
-		key := strings.ToLower(ref.RepoID)
+	for _, p := range plans {
+		if !p.hasRef {
+			continue
+		}
+		key := strings.ToLower(p.ref.RepoID)
 		if !seenRepo[key] {
 			seenRepo[key] = true
-			uniqueRepos = append(uniqueRepos, ref.RepoID)
+			uniqueRepos = append(uniqueRepos, p.ref.RepoID)
 		}
 	}
 	sort.Strings(uniqueRepos)
 
-	// Fetch metadata concurrently, bounded.
+	// Unique search names for fallback discovery (normalized dedupe).
+	uniqueNames := []string{}
+	seenName := map[string]bool{}
+	for _, p := range plans {
+		for _, n := range p.names {
+			key := hugs.NormalizeSearchName(n)
+			if !seenName[key] {
+				seenName[key] = true
+				uniqueNames = append(uniqueNames, n)
+			}
+		}
+	}
+	sort.Strings(uniqueNames)
+
+	// Bounded concurrent network phase: fetch explicit repos and search the
+	// unique discovery names. Searches never carry an Authorization header.
 	type outcome struct {
 		meta   *hugs.HFModelMeta
 		status int
 		err    error
 	}
-	metaByRepo := map[string]outcome{}
+	metaByRepo := map[string]outcome{} // key: lowercased repo id
+	resultsByName := map[string][]hugs.HFSearchResult{}
+	searchErrByName := map[string]error{}
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 4)
@@ -257,30 +345,157 @@ func (s *Server) verifyModelsAgainstHF(ctx context.Context, models map[string]co
 			mu.Unlock()
 		}()
 	}
+	for _, name := range uniqueNames {
+		name := name
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			results, status, err := search(ctx, name, hfSearchLimit)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				searchErrByName[name] = err
+				return
+			}
+			if status != http.StatusOK {
+				searchErrByName[name] = fmt.Errorf("search %q: unexpected http status %d", name, status)
+				return
+			}
+			resultsByName[name] = results
+		}()
+	}
 	wg.Wait()
 
-	// Build one result per configured model, sorted by model id. Models with
-	// no HF ref are reported as no_ref.
+	// Choose the best discovered repo per no-ref model: lowest match rank
+	// across its names (names are ordered model id, display name, aliases;
+	// exact beats token-boundary prefix).
+	chosenRepo := map[string]string{}
+	chosenName := map[string]string{}
+	for id, p := range plans {
+		if p.hasRef || len(p.names) == 0 {
+			continue
+		}
+		best, bestRank, bestName := "", 99, ""
+		for _, n := range p.names {
+			if res, rank, ok := hugs.SelectStrongHFMatch(n, resultsByName[n]); ok && rank < bestRank {
+				best, bestRank, bestName = res.ID, rank, n
+			}
+		}
+		if best != "" {
+			chosenRepo[id] = best
+			chosenName[id] = bestName
+		}
+	}
+
+	// Fetch metadata for the discovered repos, deduplicated against the
+	// explicit fetches above (two models can discover the same repo).
+	discoveredRepos := []string{}
+	seenDiscovered := map[string]bool{}
+	for _, repoID := range chosenRepo {
+		key := strings.ToLower(repoID)
+		if !seenDiscovered[key] {
+			seenDiscovered[key] = true
+			discoveredRepos = append(discoveredRepos, repoID)
+		}
+	}
+	sort.Strings(discoveredRepos)
+	for _, repoID := range discoveredRepos {
+		key := strings.ToLower(repoID)
+		mu.Lock()
+		_, already := metaByRepo[key]
+		mu.Unlock()
+		if already {
+			continue
+		}
+		repoID := repoID
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			meta, status, err := fetch(ctx, repoID)
+			mu.Lock()
+			metaByRepo[key] = outcome{meta: meta, status: status, err: err}
+			mu.Unlock()
+		}()
+	}
+	wg.Wait()
+
+	// Build one result per configured model, sorted by model id.
 	modelIDs := make([]string, 0, len(models))
 	for id := range models {
 		modelIDs = append(modelIDs, id)
 	}
 	sort.Strings(modelIDs)
 
+	applyOutcome := func(res *hugs.HFModelResult, oc outcome) {
+		res.HTTPStatus = oc.status
+		switch {
+		case oc.status == http.StatusOK && oc.meta != nil:
+			res.Status = "matched"
+			res.PipelineTag = oc.meta.PipelineTag
+			res.Capabilities, res.Evidence = hugs.InferHFCapabilities(oc.meta)
+		case oc.status == http.StatusNotFound:
+			res.Status = "unmatched"
+			res.Reason = "repo not found on Hugging Face (exact match)"
+		case oc.status == http.StatusUnauthorized || oc.status == http.StatusForbidden:
+			res.Status = "unauthorized"
+			res.Reason = "repo is gated or missing; cannot be verified without a token"
+		default:
+			res.Status = "error"
+			res.Error = fmt.Sprintf("unexpected http status %d", oc.status)
+		}
+	}
+
 	summary := &hfVerifySummary{Models: []hugs.HFModelResult{}}
 	for _, modelID := range modelIDs {
-		ref, hasRef := refByModel[modelID]
-		if !hasRef {
-			summary.Models = append(summary.Models, hugs.HFModelResult{
-				ModelID: modelID,
-				Status:  "no_ref",
-				Reason:  "no Hugging Face repo reference in cmd",
-			})
+		p := plans[modelID]
+		res := hugs.HFModelResult{ModelID: modelID}
+
+		if !p.hasRef && len(p.names) == 0 {
+			res.Status = "no_ref"
+			res.Reason = "no Hugging Face repo reference in cmd and no searchable name/alias"
+			summary.Models = append(summary.Models, res)
 			summary.NoRef++
 			continue
 		}
-		res := hugs.HFModelResult{ModelID: modelID, RepoID: ref.RepoID}
-		oc, ok := metaByRepo[strings.ToLower(ref.RepoID)]
+
+		if p.hasRef {
+			res.RepoID = p.ref.RepoID
+			oc, ok := metaByRepo[strings.ToLower(p.ref.RepoID)]
+			if !ok {
+				res.Status = "error"
+				res.Error = "no fetch outcome"
+			} else if oc.err != nil {
+				res.Status = "error"
+				res.Error = oc.err.Error()
+			} else {
+				applyOutcome(&res, oc)
+			}
+			summary.Models = append(summary.Models, res)
+			countHFResult(summary, res)
+			continue
+		}
+
+		// Fallback discovery: search already ran; report the verdict.
+		repoID, ok := chosenRepo[modelID]
+		if !ok {
+			if errMsg := firstSearchError(p.names, searchErrByName); errMsg != "" {
+				res.Status = "error"
+				res.Error = errMsg
+			} else {
+				res.Status = "unmatched"
+				res.Reason = fmt.Sprintf("no strong Hugging Face match for %q", strings.Join(p.names, `", "`))
+			}
+			summary.Models = append(summary.Models, res)
+			countHFResult(summary, res)
+			continue
+		}
+		res.RepoID = repoID
+		res.Reason = fmt.Sprintf("discovered by HF Hub search for %q", chosenName[modelID])
+		oc, ok := metaByRepo[strings.ToLower(repoID)]
 		if !ok {
 			res.Status = "error"
 			res.Error = "no fetch outcome"
@@ -288,42 +503,43 @@ func (s *Server) verifyModelsAgainstHF(ctx context.Context, models map[string]co
 			res.Status = "error"
 			res.Error = oc.err.Error()
 		} else {
-			res.HTTPStatus = oc.status
-			switch {
-			case oc.status == http.StatusOK && oc.meta != nil:
-				res.Status = "matched"
-				res.PipelineTag = oc.meta.PipelineTag
-				res.Capabilities, res.Evidence = hugs.InferHFCapabilities(oc.meta)
-			case oc.status == http.StatusNotFound:
-				res.Status = "unmatched"
-				res.Reason = "repo not found on Hugging Face (exact match)"
-			case oc.status == http.StatusUnauthorized || oc.status == http.StatusForbidden:
-				res.Status = "unauthorized"
-				res.Reason = "repo is gated or missing; cannot be verified without a token"
-			default:
-				res.Status = "error"
-				res.Error = fmt.Sprintf("unexpected http status %d", oc.status)
-			}
-		}
-		switch res.Status {
-		case "matched":
-			summary.Matched++
-			summary.Checked++
-		case "unmatched":
-			summary.Unmatched++
-			summary.Checked++
-		case "unauthorized":
-			summary.Unauthorized++
-			summary.Checked++
-		case "error":
-			summary.Errors++
-			summary.Checked++
-		case "no_ref":
-			summary.NoRef++
+			applyOutcome(&res, oc)
 		}
 		summary.Models = append(summary.Models, res)
+		countHFResult(summary, res)
 	}
 	return summary
+}
+
+// countHFResult increments the summary counters for one model result.
+func countHFResult(summary *hfVerifySummary, res hugs.HFModelResult) {
+	switch res.Status {
+	case "matched", "unmatched", "unauthorized", "error":
+		summary.Checked++
+	}
+	switch res.Status {
+	case "matched":
+		summary.Matched++
+	case "unmatched":
+		summary.Unmatched++
+	case "unauthorized":
+		summary.Unauthorized++
+	case "error":
+		summary.Errors++
+	case "no_ref":
+		summary.NoRef++
+	}
+}
+
+// firstSearchError returns the first search error for any of the model's
+// names, or "" when every search succeeded (even with no strong match).
+func firstSearchError(names []string, searchErrByName map[string]error) string {
+	for _, n := range names {
+		if err := searchErrByName[n]; err != nil {
+			return err.Error()
+		}
+	}
+	return ""
 }
 
 // persistHFFindings records each queried model's outcome as namespaced hf:*

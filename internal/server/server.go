@@ -46,6 +46,12 @@ type Server struct {
 	// implementation (fetchHFModelMetaPublic) is used.
 	hfFetch hfModelFetcher
 
+	// hfSearch is the injectable Hugging Face public-API model search used as
+	// a fallback when a model's cmd has no explicit HF repo reference (see
+	// ModelSearchNames). Nil means the default public-API implementation
+	// (searchHFModelsPublic) is used.
+	hfSearch hfModelSearcher
+
 	local router.LocalRouter
 	peer  router.Router
 

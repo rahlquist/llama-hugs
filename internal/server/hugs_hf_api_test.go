@@ -19,9 +19,10 @@ import (
 	"github.com/rahlquist/llama-hugs/internal/store"
 )
 
-// hfRescanServer builds a Server (stub routers) with the given models and an
-// optional stub HF metadata fetcher, pointed at an isolated cache root via env.
-func hfRescanServer(t *testing.T, models map[string]config.ModelConfig, fetch hfModelFetcher) *Server {
+// hfRescanServer builds a Server (stub routers) with the given models, an
+// optional stub HF metadata fetcher, and an optional stub HF Hub search,
+// pointed at an isolated cache root via env.
+func hfRescanServer(t *testing.T, models map[string]config.ModelConfig, fetch hfModelFetcher, search hfModelSearcher) *Server {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	proxylog := logmon.NewWriter(io.Discard)
@@ -39,6 +40,7 @@ func hfRescanServer(t *testing.T, models map[string]config.ModelConfig, fetch hf
 		metrics:     newMetricsMonitor(proxylog, 0, 0, st),
 		store:       st,
 		hfFetch:     fetch,
+		hfSearch:    search,
 		shutdownCtx: ctx,
 		shutdownFn:  cancel,
 	}
@@ -92,7 +94,7 @@ func TestHugsHFRescanMatchedAndUnmatched(t *testing.T) {
 	models := map[string]config.ModelConfig{
 		"m1": {Cmd: "llama-server -hf org/used:model.gguf --port 8080"},
 	}
-	s := hfRescanServer(t, models, nil)
+	s := hfRescanServer(t, models, nil, nil)
 	out := decodeHFRescan(t, postHFRescan(t, s, false))
 
 	if !out.CacheRootExists || out.CacheRoot != root {
@@ -134,7 +136,7 @@ func TestHugsHFRescanStampsExistingMetaRow(t *testing.T) {
 	t.Setenv("HF_HUB_CACHE", root)
 	writeHFRepo(t, root, "org/used", 100)
 	models := map[string]config.ModelConfig{"m1": {Cmd: "llama-server -hf org/used"}}
-	s := hfRescanServer(t, models, nil)
+	s := hfRescanServer(t, models, nil, nil)
 
 	// Pre-existing meta row (the normal path: GET /api/hugs/meta/{model}).
 	if _, err := hugs.GetModelMeta(context.Background(), s.store.DB(), "m1"); err != nil {
@@ -160,7 +162,7 @@ func TestHugsHFRescanStampsExistingMetaRow(t *testing.T) {
 func TestHugsHFRescanMissingCacheRoot(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "nope")
 	t.Setenv("HF_HUB_CACHE", missing)
-	s := hfRescanServer(t, nil, nil)
+	s := hfRescanServer(t, nil, nil, nil)
 	out := decodeHFRescan(t, postHFRescan(t, s, false))
 	if out.CacheRootExists {
 		t.Fatalf("expected cache_root_exists=false: %+v", out)
@@ -201,13 +203,22 @@ func TestHugsHFRescanVerifyDerivesPerModelResults(t *testing.T) {
 			return nil, 0, nil
 		}
 	}
-	s := hfRescanServer(t, models, stub)
+	searchStub := func(ctx context.Context, query string, limit int) ([]hugs.HFSearchResult, int, error) {
+		// "local" has no explicit repo ref, so it is searched; no plausible
+		// repo exists for it, so the result is an explicit unmatched.
+		if query != "local" {
+			t.Fatalf("unexpected search query %q", query)
+		}
+		return nil, 200, nil
+	}
+	s := hfRescanServer(t, models, stub, searchStub)
 	out := decodeHFRescan(t, postHFRescan(t, s, true))
 	v := out.Verify
 	if v == nil {
 		t.Fatal("expected verify summary")
 	}
-	if v.Checked != 4 || v.Matched != 2 || v.Unmatched != 1 || v.Errors != 1 || v.NoRef != 1 {
+	// Five models are queried (local now via name search); none is no_ref.
+	if v.Checked != 5 || v.Matched != 2 || v.Unmatched != 2 || v.Errors != 1 || v.NoRef != 0 {
 		t.Fatalf("summary counts: %+v", v)
 	}
 	byModel := map[string]hugs.HFModelResult{}
@@ -226,8 +237,8 @@ func TestHugsHFRescanVerifyDerivesPerModelResults(t *testing.T) {
 	if m := byModel["network"]; m.Status != "error" || m.Error == "" {
 		t.Fatalf("network result: %+v", m)
 	}
-	if m := byModel["local"]; m.Status != "no_ref" || m.RepoID != "" {
-		t.Fatalf("local model must be no_ref: %+v", m)
+	if m := byModel["local"]; m.Status != "unmatched" || m.RepoID != "" || !strings.Contains(m.Reason, "no strong Hugging Face match") {
+		t.Fatalf("local model must be searched and unmatched, not no_ref: %+v", m)
 	}
 	// Findings persisted as hf:* tags on the queried models' meta rows.
 	meta, err := hugs.GetModelMeta(context.Background(), s.store.DB(), "vision")
@@ -238,17 +249,12 @@ func TestHugsHFRescanVerifyDerivesPerModelResults(t *testing.T) {
 	if err != nil || !strings.Contains(meta.Tags, "hf:unmatched") {
 		t.Fatalf("missing meta tags: %+v err=%v", meta, err)
 	}
-	// Local-only models get no meta row at all: verify must not fabricate one.
-	rows, err := hugs.ListModelMeta(context.Background(), s.store.DB())
-	if err != nil {
-		t.Fatalf("list meta: %v", err)
+	// The searched "local" model is also recorded as unmatched.
+	meta, err = hugs.GetModelMeta(context.Background(), s.store.DB(), "local")
+	if err != nil || !strings.Contains(meta.Tags, "hf:unmatched") {
+		t.Fatalf("local meta tags: %+v err=%v", meta, err)
 	}
-	for _, r := range rows {
-		if r.ModelID == "local" {
-			t.Fatal("no_ref model must not get a meta row from the rescan")
-		}
-	}
-	if !reflect.DeepEqual(out.TagsUpdated, []string{"missing", "network", "tools", "vision"}) {
+	if !reflect.DeepEqual(out.TagsUpdated, []string{"local", "missing", "network", "tools", "vision"}) {
 		t.Fatalf("tags_updated: %+v", out.TagsUpdated)
 	}
 }
@@ -260,7 +266,7 @@ func TestHugsHFRescanVerifyPreservesUserTags(t *testing.T) {
 	stub := func(ctx context.Context, repoID string) (*hugs.HFModelMeta, int, error) {
 		return hfMeta("org/vl", "image-text-to-text", "multimodal"), 200, nil
 	}
-	s := hfRescanServer(t, models, stub)
+	s := hfRescanServer(t, models, stub, nil)
 
 	// Pre-seed a row with user tags via the normal meta path.
 	if _, err := hugs.UpdateModelMeta(context.Background(), s.store.DB(),
@@ -301,7 +307,7 @@ func TestHugsHFRescanVerifyUnauthorizedIsExplicit(t *testing.T) {
 	stub := func(ctx context.Context, repoID string) (*hugs.HFModelMeta, int, error) {
 		return nil, 401, nil
 	}
-	s := hfRescanServer(t, models, stub)
+	s := hfRescanServer(t, models, stub, nil)
 	out := decodeHFRescan(t, postHFRescan(t, s, true))
 	v := out.Verify
 	if v == nil || v.Unauthorized != 1 || v.Matched != 0 || v.Unmatched != 0 {
@@ -324,7 +330,7 @@ func TestHugsHFRescanVerifyWithoutParamSkipsNetwork(t *testing.T) {
 	s := hfRescanServer(t, nil, func(ctx context.Context, repoID string) (*hugs.HFModelMeta, int, error) {
 		called = true
 		return hfMeta(repoID, "text-generation"), 200, nil
-	})
+	}, nil)
 	out := decodeHFRescan(t, postHFRescan(t, s, false))
 	if called {
 		t.Fatal("fetcher must not run without verify=1")
@@ -346,7 +352,7 @@ func TestHugsHFRescanVerifyDedupesSharedRepo(t *testing.T) {
 		calls++
 		return hfMeta("shared/repo", "text-generation"), 200, nil
 	}
-	s := hfRescanServer(t, models, stub)
+	s := hfRescanServer(t, models, stub, nil)
 	out := decodeHFRescan(t, postHFRescan(t, s, true))
 	if calls != 1 {
 		t.Fatalf("shared repo fetched %d times, want 1", calls)
@@ -361,7 +367,7 @@ func TestHugsHFRescanNeverMutatesConfig(t *testing.T) {
 	t.Setenv("HF_HUB_CACHE", root)
 	writeHFRepo(t, root, "org/a", 10)
 	models := map[string]config.ModelConfig{"m1": {Cmd: "llama-server -hf org/a"}}
-	s := hfRescanServer(t, models, nil)
+	s := hfRescanServer(t, models, nil, nil)
 	before := s.cfg.Models["m1"]
 	decodeHFRescan(t, postHFRescan(t, s, false))
 	if !reflect.DeepEqual(before, s.cfg.Models["m1"]) {
@@ -384,8 +390,199 @@ func TestHFModelURLKeepsSlashSeparator(t *testing.T) {
 	}
 }
 
+func TestHFSearchURLEscapesQuery(t *testing.T) {
+	u := hfSearchURL("qwen3.5-9b", 20)
+	if !strings.Contains(u, "/api/models?search=qwen3.5-9b&limit=20") {
+		t.Fatalf("url: %s", u)
+	}
+	u = hfSearchURL("Qwen 3.5-9B", 5)
+	if !strings.Contains(u, "search=Qwen+3.5-9B") || !strings.Contains(u, "limit=5") {
+		t.Fatalf("escaped url: %s", u)
+	}
+}
+
+func TestHugsHFRescanVerifyDiscoversBySearchName(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HF_HUB_CACHE", root)
+
+	// No HF repo ref in cmd: verification must fall back to name search over
+	// the model id, display name and aliases.
+	models := map[string]config.ModelConfig{
+		"qwen3.5-9b": {
+			Cmd:     "llama-server -m /home/u/qwen3.5-9b-instruct.gguf --port 8080",
+			Name:    "Qwen3.5-9B",
+			Aliases: []string{"qwen3.5-9b-instruct"},
+		},
+	}
+	searches := map[string][]string{}
+	fetched := map[string]int{}
+	stubSearch := func(ctx context.Context, query string, limit int) ([]hugs.HFSearchResult, int, error) {
+		if limit != 20 {
+			t.Fatalf("search limit: %d", limit)
+		}
+		searches[query] = append(searches[query], "called")
+		// Plausible HF Hub results for "qwen3.5-9b".
+		return []hugs.HFSearchResult{
+			{ID: "Qwen/Qwen3.5-9B-Instruct"},
+			{ID: "Qwen/Qwen3.5-9B-AWQ"},
+			{ID: "Qwen/Qwen3.5-9B-GGUF"},
+		}, 200, nil
+	}
+	stubFetch := func(ctx context.Context, repoID string) (*hugs.HFModelMeta, int, error) {
+		fetched[repoID]++
+		return hfMeta("Qwen/Qwen3.5-9B-Instruct", "text-generation", "function calling", "mtp-head"), 200, nil
+	}
+	s := hfRescanServer(t, models, stubFetch, stubSearch)
+	out := decodeHFRescan(t, postHFRescan(t, s, true))
+	v := out.Verify
+	if v == nil {
+		t.Fatal("expected verify summary")
+	}
+	if v.Checked != 1 || v.Matched != 1 || v.Unmatched != 0 || v.NoRef != 0 {
+		t.Fatalf("summary counts: %+v", v)
+	}
+	// The alias "qwen3.5-9b-instruct" is a distinct searchable name; the
+	// display name normalizes to the model id so it does not add a search.
+	if len(searches) != 2 || len(searches["qwen3.5-9b"]) != 1 || len(searches["qwen3.5-9b-instruct"]) != 1 {
+		t.Fatalf("search queries: %+v (want one each of qwen3.5-9b and the alias)", searches)
+	}
+	// The selected repo is fetched exactly once and matched with inferred
+	// capabilities from its metadata.
+	m := v.Models[0]
+	if m.ModelID != "qwen3.5-9b" || m.Status != "matched" || m.RepoID != "Qwen/Qwen3.5-9B-Instruct" {
+		t.Fatalf("discovered result: %+v", m)
+	}
+	if !m.Capabilities.Tools || !m.Capabilities.MTP {
+		t.Fatalf("capabilities not inferred from metadata: %+v evidence=%v", m.Capabilities, m.Evidence)
+	}
+	if !strings.Contains(m.Reason, "discovered by HF Hub search") {
+		t.Fatalf("reason should cite discovery: %+v", m)
+	}
+	if fetched["Qwen/Qwen3.5-9B-Instruct"] != 1 {
+		t.Fatalf("fetched: %+v", fetched)
+	}
+	// Findings persisted as hf:* tags (presentation metadata only).
+	meta, err := hugs.GetModelMeta(context.Background(), s.store.DB(), "qwen3.5-9b")
+	if err != nil {
+		t.Fatalf("get meta: %v", err)
+	}
+	for _, tag := range []string{"hf:checked", "hf:tools", "hf:mtp"} {
+		if !strings.Contains(meta.Tags, tag) {
+			t.Fatalf("missing tag %s in %q", tag, meta.Tags)
+		}
+	}
+}
+
+func TestHugsHFRescanVerifyAliasFindsRepo(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HF_HUB_CACHE", root)
+
+	// Model id is opaque, but the alias names the real repo.
+	models := map[string]config.ModelConfig{
+		"local-kit": {
+			Cmd:     "llama-server -m /opt/models/k7.gguf",
+			Aliases: []string{"NousResearch/Hermes-4-70B"},
+		},
+	}
+	stubSearch := func(ctx context.Context, query string, limit int) ([]hugs.HFSearchResult, int, error) {
+		if query == "NousResearch/Hermes-4-70B" {
+			return []hugs.HFSearchResult{{ID: "NousResearch/Hermes-4-70B"}}, 200, nil
+		}
+		return nil, 200, nil // "local-kit" itself matches nothing
+	}
+	stubFetch := func(ctx context.Context, repoID string) (*hugs.HFModelMeta, int, error) {
+		if repoID != "NousResearch/Hermes-4-70B" {
+			t.Fatalf("unexpected fetch %q", repoID)
+		}
+		return hfMeta(repoID, "text-generation", "function calling"), 200, nil
+	}
+	s := hfRescanServer(t, models, stubFetch, stubSearch)
+	out := decodeHFRescan(t, postHFRescan(t, s, true))
+	m := out.Verify.Models[0]
+	if m.Status != "matched" || m.RepoID != "NousResearch/Hermes-4-70B" || !m.Capabilities.Tools {
+		t.Fatalf("alias discovery result: %+v", m)
+	}
+}
+
+func TestHugsHFRescanVerifyNoRefWhenNothingSearchable(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HF_HUB_CACHE", root)
+
+	// Empty model id with no display name and no aliases: nothing to search,
+	// so no_ref is preserved and no network call is made.
+	models := map[string]config.ModelConfig{"": {Cmd: "llama-server -m /tmp/x.gguf"}}
+	searched := false
+	fetched := false
+	s := hfRescanServer(t, models,
+		func(ctx context.Context, repoID string) (*hugs.HFModelMeta, int, error) {
+			fetched = true
+			return nil, 0, nil
+		},
+		func(ctx context.Context, query string, limit int) ([]hugs.HFSearchResult, int, error) {
+			searched = true
+			return nil, 200, nil
+		})
+	out := decodeHFRescan(t, postHFRescan(t, s, true))
+	v := out.Verify
+	if v == nil || v.NoRef != 1 || v.Checked != 0 {
+		t.Fatalf("summary: %+v", v)
+	}
+	if m := v.Models[0]; m.Status != "no_ref" || m.RepoID != "" || m.Reason == "" {
+		t.Fatalf("no_ref result: %+v", m)
+	}
+	if searched || fetched {
+		t.Fatalf("no_ref model must not touch the network: searched=%v fetched=%v", searched, fetched)
+	}
+}
+
+func TestHugsHFRescanVerifySearchErrorIsReported(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HF_HUB_CACHE", root)
+	models := map[string]config.ModelConfig{"m1": {Cmd: "llama-server -m /home/u/model.gguf"}}
+	stubSearch := func(ctx context.Context, query string, limit int) ([]hugs.HFSearchResult, int, error) {
+		return nil, 0, errors.New("search endpoint down")
+	}
+	s := hfRescanServer(t, models, nil, stubSearch)
+	out := decodeHFRescan(t, postHFRescan(t, s, true))
+	v := out.Verify
+	if v == nil || v.Errors != 1 || v.Checked != 1 || v.Unmatched != 0 {
+		t.Fatalf("summary: %+v", v)
+	}
+	if m := v.Models[0]; m.Status != "error" || !strings.Contains(m.Error, "search endpoint down") {
+		t.Fatalf("search error result: %+v", m)
+	}
+}
+
+func TestHugsHFRescanVerifySearchDedupesSharedName(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HF_HUB_CACHE", root)
+	models := map[string]config.ModelConfig{
+		"a": {Cmd: "llama-server -m /a.gguf", Aliases: []string{"hermes-4"}},
+		"b": {Cmd: "llama-server -m /b.gguf", Aliases: []string{"hermes-4"}},
+	}
+	searchCalls := 0
+	stubSearch := func(ctx context.Context, query string, limit int) ([]hugs.HFSearchResult, int, error) {
+		if query == "hermes-4" {
+			searchCalls++
+			return []hugs.HFSearchResult{{ID: "NousResearch/Hermes-4"}}, 200, nil
+		}
+		return nil, 200, nil
+	}
+	stubFetch := func(ctx context.Context, repoID string) (*hugs.HFModelMeta, int, error) {
+		return hfMeta(repoID, "text-generation", "function calling"), 200, nil
+	}
+	s := hfRescanServer(t, models, stubFetch, stubSearch)
+	out := decodeHFRescan(t, postHFRescan(t, s, true))
+	if searchCalls != 1 {
+		t.Fatalf("shared alias searched %d times, want 1", searchCalls)
+	}
+	if out.Verify.Matched != 2 || out.Verify.Checked != 2 {
+		t.Fatalf("summary: %+v", out.Verify)
+	}
+}
+
 func TestHugsHFRescanRouteIsPostOnly(t *testing.T) {
-	s := hfRescanServer(t, nil, nil)
+	s := hfRescanServer(t, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/api/hugs/hf/rescan", nil)
 	rr := httptest.NewRecorder()
 	s.ServeHTTP(rr, req)

@@ -5,8 +5,11 @@ package hugs
 // The scan is read-only against the filesystem. Matching is deliberately
 // conservative: a cached repo is considered matched only when some model's
 // cmd references the exact repo id (see ExtractHFRefs); everything else is
-// reported explicitly as unmatched. The only database write in this package
-// is MarkRegistered, which never creates rows.
+// reported explicitly as unmatched. When a model's cmd carries no repo
+// reference, the verify path (internal/server) falls back to HF Hub name
+// search over the model id, display name and aliases (see ModelSearchNames
+// and SelectStrongHFMatch). The only database write in this package is
+// MarkRegistered, which never creates rows.
 
 import (
 	"context"
@@ -284,6 +287,113 @@ func ExtractConfigHFRefs(models map[string]config.ModelConfig) []HFConfigRef {
 	return out
 }
 
+// ---------------------------------------------------------------------------
+// HF Hub name search — fallback discovery when a model's cmd has no repo ref
+// ---------------------------------------------------------------------------
+
+// HFSearchResult is one entry of the PUBLIC HF Hub model search response
+// (GET /api/models?search=...&limit=...). Only the repo id is needed for
+// candidate selection; full metadata for the chosen repo is fetched
+// separately so capabilities can be inferred from the same signals as
+// explicit refs.
+type HFSearchResult struct {
+	ID string `json:"id"`
+}
+
+// NormalizeSearchName lowercases and trims a repo id or display name for
+// stable comparison. Punctuation is preserved: exact equality plus
+// token-boundary prefix rules (see SelectStrongHFMatch) decide the verdict.
+func NormalizeSearchName(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
+// ModelSearchNames returns the non-empty, de-duplicated searchable names for
+// a configured model: its model id, display name (config "name"), and
+// aliases, in that order. A model with nothing searchable returns nil —
+// callers must report it as no_ref rather than fabricate a search.
+func ModelSearchNames(modelID string, mc config.ModelConfig) []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return
+		}
+		key := NormalizeSearchName(s)
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		out = append(out, s)
+	}
+	add(modelID)
+	add(mc.Name)
+	for _, a := range mc.Aliases {
+		add(a)
+	}
+	return out
+}
+
+// strongMatchRank scores how strongly a search result matches a query name:
+//
+//	0 — normalized repo id equals the query
+//	1 — normalized name segment (text after the last "/") equals the query
+//	2 — query is a token-boundary prefix of the name segment
+//	   ("qwen3.5-9b" → "Qwen/Qwen3.5-9B-Instruct")
+//
+// A prefix only counts when the following character is "-", "_" or ".",
+// so "qwen3.5-9b" never matches "qwen3.5-9bx". Returns ok=false when the
+// candidate is not a strong match at all.
+func strongMatchRank(query, candidateID string) (rank int, ok bool) {
+	q := NormalizeSearchName(query)
+	if q == "" {
+		return 0, false
+	}
+	cid := NormalizeSearchName(candidateID)
+	if cid == q {
+		return 0, true
+	}
+	name := candidateID
+	if i := strings.LastIndex(name, "/"); i >= 0 {
+		name = name[i+1:]
+	}
+	cn := NormalizeSearchName(name)
+	if cn == q {
+		return 1, true
+	}
+	if strings.HasPrefix(cn, q) {
+		rest := cn[len(q):]
+		if rest != "" && (rest[0] == '-' || rest[0] == '_' || rest[0] == '.') {
+			return 2, true
+		}
+	}
+	return 0, false
+}
+
+// SelectStrongHFMatch picks the best candidate from a HF Hub model search
+// response for one query name. Exact matches win over token-boundary prefix
+// matches; ties keep search (relevance) order. The returned rank is the
+// match strength (lower is stronger: 0 exact id, 1 exact name segment,
+// 2 token-boundary prefix). Returns ok=false when no result is a strong
+// match.
+func SelectStrongHFMatch(query string, results []HFSearchResult) (best HFSearchResult, rank int, ok bool) {
+	bestRank := 0
+	found := false
+	for _, r := range results {
+		if r.ID == "" {
+			continue
+		}
+		rk, m := strongMatchRank(query, r.ID)
+		if !m {
+			continue
+		}
+		if !found || rk < bestRank {
+			best, bestRank, found = r, rk, true
+		}
+	}
+	return best, bestRank, found
+}
+
 // normalizeRepoID lowercases a repo id for conservative case-insensitive
 // comparison (HF Hub treats repo ids case-insensitively).
 func normalizeRepoID(repoID string) string {
@@ -379,10 +489,11 @@ func (c HFCapabilities) HasAny() bool {
 // public HF API. Status is one of:
 //
 //	matched      — repo exists (200); Capabilities holds the conservative findings
-//	unmatched    — repo not found on HF (404) — exact, tokenless miss
+//	unmatched    — repo not found on HF (404) or no strong name-search match
 //	unauthorized — 401/403: gated or nonexistent; cannot be verified tokenless
 //	error        — network/timeout/unexpected response; no finding possible
-//	no_ref       — cmd has no HF repo reference; not queried
+//	no_ref       — cmd has no HF repo reference AND no searchable name/alias;
+//	               not queried
 type HFModelResult struct {
 	ModelID      string         `json:"model_id"`
 	RepoID       string         `json:"repo_id,omitempty"`

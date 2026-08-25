@@ -236,7 +236,7 @@
             size="sm"
             onclick={rescanModels}
             disabled={scanning}
-            title="Scan the local HF cache and verify each model against Hugging Face (exact match, vision/audio/image/tools/MTP)"
+            title="Scan the local HF cache and verify each model against Hugging Face (exact repo match or name/alias search; vision/audio/image/tools/MTP)"
           >
             {#if scanning}
               <Loader2 class="size-3.5 animate-spin" />
