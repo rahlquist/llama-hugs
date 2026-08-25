@@ -41,6 +41,11 @@ type Server struct {
 	profileMu     sync.RWMutex
 	activeProfile string
 
+	// hfFetch is the injectable Hugging Face public-API metadata fetcher used
+	// by POST /api/hugs/hf/rescan?verify=1. Nil means the default public-API
+	// implementation (fetchHFModelMetaPublic) is used.
+	hfFetch hfModelFetcher
+
 	local router.LocalRouter
 	peer  router.Router
 
@@ -340,6 +345,7 @@ func (s *Server) routes() {
 	mux.Handle("POST /api/hugs/settings", apiChain.ThenFunc(s.handleHugsSettingsSet))
 	mux.Handle("POST /api/hugs/bench/ingest", apiChain.ThenFunc(s.handleHugsBenchIngest))
 	mux.Handle("GET /api/hugs/bench/leaderboard", apiChain.ThenFunc(s.handleHugsBenchLeaderboard))
+	mux.Handle("POST /api/hugs/hf/rescan", apiChain.ThenFunc(s.handleHugsHFRescan))
 	mux.Handle("GET /api/hugs/files/flags", apiChain.ThenFunc(s.handleHugsFileFlagsGet))
 	mux.Handle("POST /api/hugs/files/flags", apiChain.ThenFunc(s.handleHugsFileFlagsSet))
 	mux.Handle("POST /api/hugs/files/delete", apiChain.ThenFunc(s.handleHugsFilesDelete))

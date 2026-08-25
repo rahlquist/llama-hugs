@@ -20,25 +20,72 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Switch from "$lib/components/ui/switch/index.js";
   import * as Label from "$lib/components/ui/label/index.js";
-  import { PowerOff, Loader2, ExternalLink, SquareStack } from "@lucide/svelte";
+  import { PowerOff, Loader2, ExternalLink, SquareStack, RefreshCw, HardDrive, Globe, CircleCheck, CircleX, TriangleAlert } from "@lucide/svelte";
   import { modelServerPath } from "../lib/modelUtils";
+  import { formatCapacity } from "../lib/format";
+  import {
+    summarizeHFRescan,
+    foundCapabilities,
+    hfStatusLabels,
+    hfCapabilityLabels,
+    hfCapabilityBadgeClass,
+    type HFModelResult,
+    type HFRescanResponse,
+    type ScanSummary,
+  } from "../lib/modelScan";
 
   let unloadingAll = $state(false);
   let hugTags = $state<Record<string, string>>({});
 
+  let scanning = $state(false);
+  let scanError = $state("");
+  let scanSummary = $state<ScanSummary | null>(null);
+
+  const hfStatusClass: Record<HFModelResult["status"], string> = {
+    matched: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    unmatched: "bg-destructive/15 text-destructive",
+    unauthorized: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    error: "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+    no_ref: "bg-muted text-muted-foreground",
+  };
+
   onMount(() => {
     void fetchPlaygroundModels();
-    void fetch("/api/hugs/meta")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((rows: Array<{ model_id: string; tags: string }>) => {
-        const map: Record<string, string> = {};
-        for (const row of rows ?? []) {
-          if (row.tags) map[row.model_id] = row.tags;
-        }
-        hugTags = map;
-      })
-      .catch(() => {}); // tags are decoration; never block the model list
+    void loadHugTags();
+    void rescanModels();
   });
+
+  async function loadHugTags(): Promise<void> {
+    try {
+      const res = await fetch("/api/hugs/meta");
+      const rows = res.ok ? ((await res.json()) as Array<{ model_id: string; tags: string }>) : [];
+      const map: Record<string, string> = {};
+      for (const row of rows ?? []) {
+        if (row.tags) map[row.model_id] = row.tags;
+      }
+      hugTags = map;
+    } catch {
+      // tags are decoration; never block the model list
+    }
+  }
+
+  async function rescanModels(): Promise<void> {
+    scanning = true;
+    scanError = "";
+    try {
+      const res = await fetch("/api/hugs/hf/rescan?verify=1", { method: "POST" });
+      if (!res.ok) throw new Error(`scan: HTTP ${res.status}`);
+      const data = (await res.json()) as HFRescanResponse;
+      scanSummary = summarizeHFRescan(data);
+      // The scan rewrites hf:* tags on model rows — refresh them.
+      await loadHugTags();
+    } catch (e) {
+      scanError = e instanceof Error ? e.message : String(e);
+      scanSummary = null;
+    } finally {
+      scanning = false;
+    }
+  }
 
   let visibleModels = $derived(
     $showUnlisted ? $models : $models.filter((m) => !m.unlisted)
@@ -187,6 +234,20 @@
           <Button
             variant="outline"
             size="sm"
+            onclick={rescanModels}
+            disabled={scanning}
+            title="Scan the local HF cache and verify each model against Hugging Face (exact match, vision/audio/image/tools/MTP)"
+          >
+            {#if scanning}
+              <Loader2 class="size-3.5 animate-spin" />
+            {:else}
+              <RefreshCw class="size-3.5" />
+            {/if}
+            Rescan &amp; Verify
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onclick={handleUnloadAll}
             disabled={!anyReady || unloadingAll}
           >
@@ -203,6 +264,161 @@
   </Card.Root>
 
   <div class="flex min-h-0 shrink-0 flex-col gap-4">
+    {#if scanning}
+      <Card.Root class="shrink-0 gap-0 overflow-hidden py-0">
+        <Card.Header class="shrink-0 border-b px-4 py-2.5">
+          <div class="flex items-center gap-2">
+            <Loader2 class="size-4 animate-spin" />
+            <Card.Title class="text-sm">HF cache &amp; model verification</Card.Title>
+            <span class="text-muted-foreground text-xs">Scanning…</span>
+          </div>
+        </Card.Header>
+      </Card.Root>
+    {:else if scanError}
+      <Card.Root class="shrink-0 gap-0 overflow-hidden py-0">
+        <Card.Header class="shrink-0 border-b px-4 py-2.5">
+          <div class="flex items-center gap-2">
+            <HardDrive class="size-4" />
+            <Card.Title class="text-sm">HF cache &amp; model verification</Card.Title>
+            <span class="text-destructive ml-auto text-xs">{scanError}</span>
+          </div>
+        </Card.Header>
+      </Card.Root>
+    {:else if scanSummary}
+      <Card.Root class="shrink-0 gap-0 overflow-hidden py-0">
+        <Card.Header class="shrink-0 border-b px-4 py-2.5">
+          <div class="flex items-center gap-2">
+            <HardDrive class="size-4" />
+            <Card.Title class="text-sm">HF cache &amp; model verification</Card.Title>
+            <span class="text-muted-foreground ml-auto text-xs" title={scanSummary.root}>
+              {scanSummary.scannedAtUnix > 0
+                ? `scanned ${new Date(scanSummary.scannedAtUnix * 1000).toLocaleTimeString()}`
+                : "scan pending"}
+            </span>
+          </div>
+        </Card.Header>
+        <Card.Content class="p-0">
+          <div class="grid grid-cols-2 divide-x divide-y sm:grid-cols-4 sm:divide-y-0">
+            <div class="px-4 py-2.5">
+              <p class="text-muted-foreground text-xs uppercase tracking-wide">Total size</p>
+              <p class="text-sm font-semibold">{formatCapacity(scanSummary.totalBytes)}</p>
+            </div>
+            <div class="px-4 py-2.5">
+              <p class="text-muted-foreground text-xs uppercase tracking-wide">Files on disk</p>
+              <p class="text-sm font-semibold">{scanSummary.totalFiles}</p>
+            </div>
+            <div class="px-4 py-2.5">
+              <p class="text-muted-foreground text-xs uppercase tracking-wide">Repos matched</p>
+              <p class="text-sm font-semibold">{scanSummary.matchedRepos}</p>
+            </div>
+            <div class="px-4 py-2.5">
+              <p class="text-muted-foreground text-xs uppercase tracking-wide">Repos unmatched</p>
+              <p
+                class="text-sm font-semibold"
+                class:text-destructive={scanSummary.unmatchedRepos > 0}
+              >
+                {scanSummary.unmatchedRepos}
+              </p>
+            </div>
+          </div>
+          {#if scanSummary.unmatchedRepoNames.length > 0}
+            <div class="flex flex-wrap items-center gap-1.5 border-t px-4 py-2.5">
+              <span class="text-destructive text-xs">Cached repos with no config reference:</span>
+              {#each scanSummary.unmatchedRepoNames as name (name)}
+                <Tag class="bg-destructive/15 text-destructive px-1.5 text-[0.625rem]">
+                  <span class="inline-block max-w-64 truncate" title={name}>{name}</span>
+                </Tag>
+              {/each}
+            </div>
+          {:else}
+            <p class="text-muted-foreground border-t px-4 py-2.5 text-xs">
+              Every cached repo is referenced by a config entry.
+            </p>
+          {/if}
+
+          {#if scanSummary.hf}
+            <div class="border-t">
+              <div class="flex items-center gap-2 px-4 pt-2.5">
+                <Globe class="size-4" />
+                <p class="text-sm font-semibold">Hugging Face verification</p>
+                {#if scanSummary.tagsUpdated.length > 0}
+                  <span class="text-muted-foreground ml-auto text-xs">
+                    updated {scanSummary.tagsUpdated.length}
+                    model{scanSummary.tagsUpdated.length === 1 ? "" : "s"}
+                  </span>
+                {/if}
+              </div>
+              <div class="grid grid-cols-3 divide-x divide-y sm:grid-cols-6 sm:divide-y-0">
+                <div class="px-4 py-2">
+                  <p class="text-muted-foreground text-xs uppercase tracking-wide">Checked</p>
+                  <p class="text-sm font-semibold">{scanSummary.hf.checked}</p>
+                </div>
+                <div class="px-4 py-2">
+                  <p class="text-muted-foreground text-xs uppercase tracking-wide">Matched</p>
+                  <p class="text-sm font-semibold">{scanSummary.hf.matched}</p>
+                </div>
+                <div class="px-4 py-2">
+                  <p class="text-muted-foreground text-xs uppercase tracking-wide">Unmatched</p>
+                  <p
+                    class="text-sm font-semibold"
+                    class:text-destructive={scanSummary.hf.unmatched > 0}
+                  >
+                    {scanSummary.hf.unmatched}
+                  </p>
+                </div>
+                <div class="px-4 py-2">
+                  <p class="text-muted-foreground text-xs uppercase tracking-wide">Gated</p>
+                  <p class="text-sm font-semibold">{scanSummary.hf.unauthorized}</p>
+                </div>
+                <div class="px-4 py-2">
+                  <p class="text-muted-foreground text-xs uppercase tracking-wide">Errors</p>
+                  <p class="text-sm font-semibold">{scanSummary.hf.errors}</p>
+                </div>
+                <div class="px-4 py-2">
+                  <p class="text-muted-foreground text-xs uppercase tracking-wide">No HF ref</p>
+                  <p class="text-sm font-semibold">{scanSummary.hf.no_ref}</p>
+                </div>
+              </div>
+              <div class="divide-y border-t">
+                {#each scanSummary.hf.models as m (m.model_id)}
+                  <div class="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2">
+                    <span class="min-w-0 truncate text-xs font-medium">{m.model_id}</span>
+                    {#if m.repo_id}
+                      <span class="text-muted-foreground max-w-48 truncate text-[0.625rem]" title={m.repo_id}>
+                        {m.repo_id}
+                      </span>
+                    {/if}
+                    <Tag class={`ml-auto px-1.5 text-[0.625rem] ${hfStatusClass[m.status] ?? ""}`}>
+                      {#if m.status === "matched"}
+                        <CircleCheck class="size-3" />
+                      {:else if m.status === "unmatched"}
+                        <CircleX class="size-3" />
+                      {:else if m.status === "error"}
+                        <TriangleAlert class="size-3" />
+                      {/if}
+                      {hfStatusLabels[m.status]}
+                    </Tag>
+                    {#each foundCapabilities(m.capabilities) as key (key)}
+                      <Tag class={`px-1.5 text-[0.625rem] ${hfCapabilityBadgeClass[key] ?? ""}`}>
+                        <span title={m.evidence?.find((e) => e.startsWith(key))}>
+                          {hfCapabilityLabels[key] ?? key}
+                        </span>
+                      </Tag>
+                    {/each}
+                    {#if m.reason || m.error}
+                      <span class="text-muted-foreground w-full truncate text-[0.625rem]" title={m.reason ?? m.error}>
+                        {m.reason ?? m.error}
+                      </span>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {/if}
+        </Card.Content>
+      </Card.Root>
+    {/if}
+
     {#if $profiles.length > 0}
       <Card.Root class="shrink-0 gap-0 overflow-hidden py-0">
         <Card.Header class="shrink-0 border-b px-4 py-2.5">
