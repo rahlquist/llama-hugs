@@ -3,8 +3,11 @@
   import type { Snippet } from "svelte";
   import { link } from "svelte-spa-router";
   import {
+    activeProfile,
     fetchPlaygroundModels,
     models,
+    profiles,
+    selectorModels,
     unloadAllModels,
   } from "../stores/api";
   import { statusDotColor } from "../stores/modelLoad";
@@ -17,9 +20,9 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Switch from "$lib/components/ui/switch/index.js";
   import * as Label from "$lib/components/ui/label/index.js";
-  import { PowerOff, Loader2, ExternalLink, SquareStack, RefreshCw } from "@lucide/svelte";
+  import { PowerOff, Loader2, ExternalLink, SquareStack, RefreshCw, HardDrive, Globe, CircleCheck, CircleX, TriangleAlert } from "@lucide/svelte";
   import { modelServerPath } from "../lib/modelUtils";
-
+  import { formatCapacity } from "../lib/format";
   import {
     summarizeHFRescan,
     foundCapabilities,
@@ -35,7 +38,7 @@
   let hugTags = $state<Record<string, string>>({});
 
   let scanning = $state(false);
-  let scanError = $state(""); // surfaced through the header button state
+  let scanError = $state("");
   let scanSummary = $state<ScanSummary | null>(null);
 
   const hfStatusClass: Record<HFModelResult["status"], string> = {
@@ -66,10 +69,6 @@
     }
   }
 
-  function hfResultFor(model: Model): HFModelResult | undefined {
-    return scanSummary?.hf?.models.find((result) => result.model_id === model.id);
-  }
-
   async function rescanModels(): Promise<void> {
     scanning = true;
     scanError = "";
@@ -93,6 +92,14 @@
   );
   let localModels = $derived(visibleModels.filter((model) => !model.peerID));
   let peerModels = $derived(visibleModels.filter((model) => model.peerID));
+  let selectedProfile = $derived(
+    $profiles.find((profile) => profile.id === $activeProfile)
+  );
+  let profileMappings = $derived(
+    Object.entries(selectedProfile?.pins ?? {}).sort(([a], [b]) =>
+      a.localeCompare(b, undefined, { numeric: true })
+    )
+  );
 
   let readyCount = $derived($models.filter((m) => m.state === "ready").length);
   let anyReady = $derived(readyCount > 0);
@@ -110,7 +117,6 @@
 </script>
 
 {#snippet modelRow(model: Model)}
-  {@const hf = hfResultFor(model)}
   <div class="hover:bg-muted/50 flex items-center gap-3 px-4 py-2.5">
     {#if !model.peerID}
       <span class={`size-2.5 shrink-0 rounded-full ${statusDotColor(model)}`}></span>
@@ -130,14 +136,6 @@
     </a>
     {#if $showCapabilityTags}
       {@const badges = listCapabilityBadges(model)}
-      {#if hf}
-        <div class="hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
-          <Tag class={`px-1.5 text-[0.625rem] ${hfStatusClass[hf.status] ?? ""}`}>{hfStatusLabels[hf.status]}</Tag>
-          {#each foundCapabilities(hf.capabilities) as key (key)}
-            <Tag class={`px-1.5 text-[0.625rem] ${hfCapabilityBadgeClass[key] ?? ""}`}><span title={hf.evidence?.find((e) => e.startsWith(key))}>{hfCapabilityLabels[key] ?? key}</span></Tag>
-          {/each}
-        </div>
-      {/if}
       {#if badges.length > 0}
         <div class="hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
           {#each badges as badge (badge.key)}
@@ -245,7 +243,7 @@
             {:else}
               <RefreshCw class="size-3.5" />
             {/if}
-            {scanError ? "Retry Scan" : "Rescan &amp; Verify"}
+            Rescan &amp; Verify
           </Button>
           <Button
             variant="outline"
@@ -266,7 +264,6 @@
   </Card.Root>
 
   <div class="flex min-h-0 shrink-0 flex-col gap-4">
-    <!-- HF scan details are rendered inline on matching local model rows.
     {#if scanning}
       <Card.Root class="shrink-0 gap-0 overflow-hidden py-0">
         <Card.Header class="shrink-0 border-b px-4 py-2.5">
@@ -420,7 +417,94 @@
           {/if}
         </Card.Content>
       </Card.Root>
-    <!-- Scan results are attached to local model rows; no duplicate result rows. -->
+    {/if}
+
+    {#if $profiles.length > 0}
+      <Card.Root class="shrink-0 gap-0 overflow-hidden py-0">
+        <Card.Header class="shrink-0 border-b px-4 py-2.5">
+          <div class="flex items-center gap-2">
+            <Card.Title class="text-sm">Profiles</Card.Title>
+            {#if selectedProfile}
+              <Tag>{$activeProfile}</Tag>
+              <Tag class="bg-success/15 text-success">Active</Tag>
+            {/if}
+            <span class="text-muted-foreground ml-auto text-xs">
+              {profileMappings.length} {profileMappings.length === 1 ? "mapping" : "mappings"}
+            </span>
+          </div>
+          {#if selectedProfile?.description}
+            <p class="text-muted-foreground text-xs">{selectedProfile.description}</p>
+          {/if}
+        </Card.Header>
+        <Card.Content class="p-0">
+          {#if !selectedProfile}
+            <div class="text-muted-foreground px-4 py-6 text-center text-sm">
+              No active profile
+            </div>
+          {:else}
+            <div class="divide-y">
+              {#each profileMappings as [modelID, target] (modelID)}
+                <div class="hover:bg-muted/50 flex items-center gap-2 px-4 py-2.5">
+                  <span class="max-w-[45%] truncate text-sm font-medium">{modelID}</span>
+                  <span class="text-muted-foreground text-xs" aria-hidden="true">→</span>
+                  {#if target}
+                    <span class="min-w-0 truncate text-sm">{target}</span>
+                  {:else}
+                    <Tag class="px-1.5 text-[0.625rem] uppercase">disabled</Tag>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </Card.Content>
+      </Card.Root>
+    {/if}
+
+    {#if $selectorModels.length > 0}
+      <Card.Root class="shrink-0 gap-0 overflow-hidden py-0">
+        <Card.Header class="shrink-0 border-b px-4 py-2.5">
+          <div class="flex items-center gap-2">
+            <Card.Title class="text-sm">Selectors</Card.Title>
+            <span class="text-muted-foreground ml-auto text-xs">
+              {$selectorModels.length} {$selectorModels.length === 1 ? "selector" : "selectors"}
+            </span>
+          </div>
+        </Card.Header>
+        <Card.Content class="p-0">
+          <div class="divide-y">
+            {#each $selectorModels as selector (selector.id)}
+              <div class="hover:bg-muted/50 flex items-center gap-2 px-4 py-2.5">
+                <div class="min-w-0 flex-1">
+                  <div class="truncate text-sm font-medium">
+                    {selector.name ? `${selector.id} - ${selector.name}` : selector.id}
+                  </div>
+                  {#if selector.description}
+                    <div class="text-muted-foreground truncate text-xs">
+                      {selector.description}
+                    </div>
+                  {/if}
+                  <div class="text-muted-foreground flex flex-wrap items-center gap-x-1 text-xs">
+                    <span>targets:</span>
+                    {#each selector.targets ?? [] as target, i (target)}
+                      {#if i > 0}<span>,</span>{/if}
+                      <a
+                        href="/models/{encodeURIComponent(target)}"
+                        use:link
+                        class="hover:text-foreground hover:underline"
+                      >{target}</a>
+                    {/each}
+                  </div>
+                </div>
+                {#if selector.strategy === "spillover" && selector.spillover}
+                  <Tag>spillover {selector.spillover}</Tag>
+                {/if}
+                <Tag class="px-1.5 text-[0.625rem] uppercase">{selector.strategy}</Tag>
+              </div>
+            {/each}
+          </div>
+        </Card.Content>
+      </Card.Root>
+    {/if}
 
     {@render modelSection("Local models", localModels, unlistedToggle)}
     {@render modelSection("Peer models", peerModels)}
