@@ -32,6 +32,13 @@
   let unloadingAll = $state(false);
   let hugTags = $state<Record<string, string>>({});
 
+  function gpuBadge(model: Model): { label: string; className: string } | null {
+    if (/(?:-|_)cuda$/i.test(model.id)) {
+      return { label: "Nvidia", className: "bg-green-500/15 text-green-700 dark:text-green-300" };
+    }
+    return { label: "AMD", className: "bg-red-500/15 text-red-700 dark:text-red-300" };
+  }
+
   let scanning = $state(false);
   let scanError = $state("");
   let scanSummary = $state<ScanSummary | null>(null);
@@ -77,7 +84,20 @@
   let visibleModels = $derived(
     $showUnlisted ? $models : $models.filter((m) => !m.unlisted)
   );
-  let localModels = $derived(visibleModels.filter((model) => !model.peerID));
+  function isCudaVariant(model: Model): boolean {
+    return /(?:-|_)cuda$/i.test(model.id);
+  }
+
+  let modelIDs = $derived(
+    new Set(visibleModels.map((model) => model.id.replace(/(?:-|_)cuda$/i, "")))
+  );
+  let localModels = $derived(
+    visibleModels.filter(
+      (model) =>
+        !model.peerID &&
+        !(isCudaVariant(model) && modelIDs.has(model.id.replace(/(?:-|_)cuda$/i, "")))
+    )
+  );
   let peerModels = $derived(visibleModels.filter((model) => model.peerID));
   let selectedProfile = $derived(
     $profiles.find((profile) => profile.id === $activeProfile)
@@ -105,6 +125,7 @@
 
 {#snippet modelRow(model: Model)}
   {@const badges = listCapabilityBadges(model)}
+  {@const gpu = gpuBadge(model)}
   <div class="hover:bg-muted/50 flex items-center gap-3 px-4 py-[3.25px]">
     {#if !model.peerID}
       <span class={`size-2.5 shrink-0 rounded-full ${statusDotColor(model)}`}></span>
@@ -121,7 +142,7 @@
           · {model.aliases.join(", ")}
         {/if}
       </div>
-      {#if $showCapabilityTags && (badges.length > 0 || hugTags[model.id])}
+      {#if $showCapabilityTags && (badges.length > 0 || hugTags[model.id] || gpuBadge(model))}
         <div class="mt-1 hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
           {#each badges as badge (badge.key)}
             <Tag class={`px-1.5 text-[0.625rem] ${capabilityBadgeClass[badge.key] ?? ""}`}>{badge.label}</Tag>
@@ -129,6 +150,9 @@
           {#each (hugTags[model.id] ?? "").split(",").map((t) => t.trim()).filter((t) => t !== "") as hugTag (hugTag)}
             <Tag class="bg-teal-500/15 text-teal-700 dark:text-teal-300 px-1.5 text-[0.625rem]">{hugTag}</Tag>
           {/each}
+          {#if gpu}
+            <Tag class={`px-1.5 text-[0.625rem] ${gpu.className}`}>{gpu.label}</Tag>
+          {/if}
         </div>
       {/if}
     </a>
