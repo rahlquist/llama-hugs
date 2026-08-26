@@ -104,7 +104,8 @@
 </script>
 
 {#snippet modelRow(model: Model)}
-  <div class="hover:bg-muted/50 flex items-center gap-3 px-4 py-2.5">
+  {@const badges = listCapabilityBadges(model)}
+  <div class="hover:bg-muted/50 flex items-center gap-3 px-4 py-[3.25px]">
     {#if !model.peerID}
       <span class={`size-2.5 shrink-0 rounded-full ${statusDotColor(model)}`}></span>
     {/if}
@@ -120,11 +121,8 @@
           · {model.aliases.join(", ")}
         {/if}
       </div>
-    </a>
-    {#if $showCapabilityTags}
-      {@const badges = listCapabilityBadges(model)}
-      {#if badges.length > 0}
-        <div class="hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
+      {#if $showCapabilityTags && (badges.length > 0 || hugTags[model.id])}
+        <div class="mt-1 hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
           {#each badges as badge (badge.key)}
             <Tag class={`px-1.5 text-[0.625rem] ${capabilityBadgeClass[badge.key] ?? ""}`}>{badge.label}</Tag>
           {/each}
@@ -132,14 +130,8 @@
             <Tag class="bg-teal-500/15 text-teal-700 dark:text-teal-300 px-1.5 text-[0.625rem]">{hugTag}</Tag>
           {/each}
         </div>
-      {:else if hugTags[model.id]}
-        <div class="hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
-          {#each (hugTags[model.id] ?? "").split(",").map((t) => t.trim()).filter((t) => t !== "") as hugTag (hugTag)}
-            <Tag class="bg-teal-500/15 text-teal-700 dark:text-teal-300 px-1.5 text-[0.625rem]">{hugTag}</Tag>
-          {/each}
-        </div>
       {/if}
-    {/if}
+    </a>
     <span class="text-muted-foreground text-xs uppercase tracking-wide">
       {model.state}
     </span>
