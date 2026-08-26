@@ -32,11 +32,20 @@
   let unloadingAll = $state(false);
   let hugTags = $state<Record<string, string>>({});
 
-  function gpuBadge(model: Model): { label: string; className: string } | null {
-    if (/(?:-|_)cuda$/i.test(model.id)) {
-      return { label: "Nvidia", className: "bg-green-500/15 text-green-700 dark:text-green-300" };
-    }
-    return { label: "AMD", className: "bg-red-500/15 text-red-700 dark:text-red-300" };
+  function baseModelID(id: string): string {
+    return id.replace(/(?:-|_)cuda$/i, "");
+  }
+
+  function gpuBadges(model: Model): Array<{ label: string; className: string }> {
+    const base = baseModelID(model.id);
+    const hasAMD = visibleModels.some((candidate) => !candidate.peerID && candidate.id === base);
+    const hasNvidia = visibleModels.some(
+      (candidate) => !candidate.peerID && candidate.id === `${base}-cuda`,
+    );
+    return [
+      ...(hasAMD ? [{ label: "AMD", className: "bg-red-500/15 text-red-700 dark:text-red-300" }] : []),
+      ...(hasNvidia ? [{ label: "Nvidia", className: "bg-green-500/15 text-green-700 dark:text-green-300" }] : []),
+    ];
   }
 
   let scanning = $state(false);
@@ -88,14 +97,12 @@
     return /(?:-|_)cuda$/i.test(model.id);
   }
 
-  let modelIDs = $derived(
-    new Set(visibleModels.map((model) => model.id.replace(/(?:-|_)cuda$/i, "")))
-  );
+  let modelIDs = $derived(new Set(visibleModels.map((model) => baseModelID(model.id))));
   let localModels = $derived(
     visibleModels.filter(
       (model) =>
         !model.peerID &&
-        !(isCudaVariant(model) && modelIDs.has(model.id.replace(/(?:-|_)cuda$/i, "")))
+        !(isCudaVariant(model) && modelIDs.has(baseModelID(model.id)))
     )
   );
   let peerModels = $derived(visibleModels.filter((model) => model.peerID));
@@ -125,7 +132,7 @@
 
 {#snippet modelRow(model: Model)}
   {@const badges = listCapabilityBadges(model)}
-  {@const gpu = gpuBadge(model)}
+  {@const gpu = gpuBadges(model)}
   <div class="hover:bg-muted/50 flex items-center gap-3 px-4 py-[3.25px]">
     {#if !model.peerID}
       <span class={`size-2.5 shrink-0 rounded-full ${statusDotColor(model)}`}></span>
@@ -142,7 +149,7 @@
           · {model.aliases.join(", ")}
         {/if}
       </div>
-      {#if $showCapabilityTags && (badges.length > 0 || hugTags[model.id] || gpuBadge(model))}
+      {#if $showCapabilityTags && (badges.length > 0 || hugTags[model.id] || gpu.length > 0)}
         <div class="mt-1 hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
           {#each badges as badge (badge.key)}
             <Tag class={`px-1.5 text-[0.625rem] ${capabilityBadgeClass[badge.key] ?? ""}`}>{badge.label}</Tag>
@@ -150,9 +157,9 @@
           {#each (hugTags[model.id] ?? "").split(",").map((t) => t.trim()).filter((t) => t !== "") as hugTag (hugTag)}
             <Tag class="bg-teal-500/15 text-teal-700 dark:text-teal-300 px-1.5 text-[0.625rem]">{hugTag}</Tag>
           {/each}
-          {#if gpu}
-            <Tag class={`px-1.5 text-[0.625rem] ${gpu.className}`}>{gpu.label}</Tag>
-          {/if}
+          {#each gpu as badge (badge.label)}
+            <Tag class={`px-1.5 text-[0.625rem] ${badge.className}`}>{badge.label}</Tag>
+          {/each}
         </div>
       {/if}
     </a>
