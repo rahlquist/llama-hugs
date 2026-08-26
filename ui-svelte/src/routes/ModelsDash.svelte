@@ -20,16 +20,11 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Switch from "$lib/components/ui/switch/index.js";
   import * as Label from "$lib/components/ui/label/index.js";
-  import { PowerOff, Loader2, ExternalLink, SquareStack, RefreshCw, HardDrive, Globe, CircleCheck, CircleX, TriangleAlert } from "@lucide/svelte";
+  import { PowerOff, Loader2, ExternalLink, SquareStack, RefreshCw, HardDrive, Globe } from "@lucide/svelte";
   import { modelServerPath } from "../lib/modelUtils";
   import { formatCapacity } from "../lib/format";
   import {
     summarizeHFRescan,
-    foundCapabilities,
-    hfStatusLabels,
-    hfCapabilityLabels,
-    hfCapabilityBadgeClass,
-    type HFModelResult,
     type HFRescanResponse,
     type ScanSummary,
   } from "../lib/modelScan";
@@ -40,14 +35,6 @@
   let scanning = $state(false);
   let scanError = $state("");
   let scanSummary = $state<ScanSummary | null>(null);
-
-  const hfStatusClass: Record<HFModelResult["status"], string> = {
-    matched: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-    unmatched: "bg-destructive/15 text-destructive",
-    unauthorized: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-    error: "bg-orange-500/15 text-orange-700 dark:text-orange-300",
-    no_ref: "bg-muted text-muted-foreground",
-  };
 
   onMount(() => {
     void fetchPlaygroundModels();
@@ -379,40 +366,7 @@
                   <p class="text-sm font-semibold">{scanSummary.hf.no_ref}</p>
                 </div>
               </div>
-              <div class="divide-y border-t">
-                {#each scanSummary.hf.models as m (m.model_id)}
-                  <div class="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2">
-                    <span class="min-w-0 truncate text-xs font-medium">{m.model_id}</span>
-                    {#if m.repo_id}
-                      <span class="text-muted-foreground max-w-48 truncate text-[0.625rem]" title={m.repo_id}>
-                        {m.repo_id}
-                      </span>
-                    {/if}
-                    <Tag class={`ml-auto px-1.5 text-[0.625rem] ${hfStatusClass[m.status] ?? ""}`}>
-                      {#if m.status === "matched"}
-                        <CircleCheck class="size-3" />
-                      {:else if m.status === "unmatched"}
-                        <CircleX class="size-3" />
-                      {:else if m.status === "error"}
-                        <TriangleAlert class="size-3" />
-                      {/if}
-                      {hfStatusLabels[m.status]}
-                    </Tag>
-                    {#each foundCapabilities(m.capabilities) as key (key)}
-                      <Tag class={`px-1.5 text-[0.625rem] ${hfCapabilityBadgeClass[key] ?? ""}`}>
-                        <span title={m.evidence?.find((e) => e.startsWith(key))}>
-                          {hfCapabilityLabels[key] ?? key}
-                        </span>
-                      </Tag>
-                    {/each}
-                    {#if m.reason || m.error}
-                      <span class="text-muted-foreground w-full truncate text-[0.625rem]" title={m.reason ?? m.error}>
-                        {m.reason ?? m.error}
-                      </span>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
+
             </div>
           {/if}
         </Card.Content>
