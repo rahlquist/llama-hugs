@@ -479,16 +479,17 @@ type HFModelMeta struct {
 // when the metadata positively signals it (see InferHFCapabilities), so an
 // absent signal never fabricates a finding.
 type HFCapabilities struct {
-	Vision bool `json:"vision"` // image/video input understanding
-	Audio  bool `json:"audio"`  // audio/speech input understanding
-	Image  bool `json:"image"`  // image/video generation (output modality)
-	Tools  bool `json:"tools"`  // function calling / tool use
-	MTP    bool `json:"mtp"`    // multi-token prediction (--mtp support)
+	Vision     bool `json:"vision"`     // image/video input understanding
+	Audio      bool `json:"audio"`      // audio/speech input understanding
+	Image      bool `json:"image"`      // image/video generation (output modality)
+	Tools      bool `json:"tools"`      // function calling / tool use
+	MTP        bool `json:"mtp"`        // multi-token prediction (--mtp support)
+	Uncensored bool `json:"uncensored"` // explicit uncensored model-card signal
 }
 
 // HasAny reports whether at least one capability was derived.
 func (c HFCapabilities) HasAny() bool {
-	return c.Vision || c.Audio || c.Image || c.Tools || c.MTP
+	return c.Vision || c.Audio || c.Image || c.Tools || c.MTP || c.Uncensored
 }
 
 // HFModelResult is one configured model's verification outcome against the
@@ -560,6 +561,7 @@ var (
 		"tool calling", "function calling", "function-calling",
 		"function_calling", "agent", "agents", "agentic",
 	}
+	uncensoredHints = []string{"uncensored", "uncensored-model", "uncensored model"}
 )
 
 // mtpTokenRe matches an "mtp" token at a word boundary (e.g. "mtp-head",
@@ -658,6 +660,10 @@ func InferHFCapabilities(meta *HFModelMeta) (HFCapabilities, []string) {
 	if hint, ok := hasAnyFold(tags, toolHints); ok {
 		caps.Tools = true
 		add("tools", "tag="+hint)
+	}
+	if hint, ok := hasAnyFold(append([]string{meta.ID}, tags...), uncensoredHints); ok {
+		caps.Uncensored = true
+		add("uncensored", "signal="+hint)
 	}
 
 	// MTP: multi-token prediction. Token-boundary match on repo id, tags,

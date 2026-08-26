@@ -348,6 +348,13 @@ func TestMarkRegisteredNeverCreatesOrClobbers(t *testing.T) {
 	}
 }
 
+func TestInferHFCapabilitiesUncensored(t *testing.T) {
+	caps, evidence := InferHFCapabilities(&HFModelMeta{ID: "org/model-uncensored"})
+	if !caps.Uncensored || len(evidence) == 0 {
+		t.Fatalf("expected uncensored capability, got %+v evidence=%v", caps, evidence)
+	}
+}
+
 func TestInferHFCapabilities(t *testing.T) {
 	meta := func(repoID, pipeline string, tags []string, modelType string, archs []string) *HFModelMeta {
 		m := &HFModelMeta{ID: repoID, PipelineTag: pipeline, Tags: tags}

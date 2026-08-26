@@ -32,6 +32,7 @@ export interface HFCapabilities {
   image: boolean;
   tools: boolean;
   mtp: boolean;
+  uncensored?: boolean;
 }
 
 export type HFModelStatus = "matched" | "unmatched" | "unauthorized" | "error" | "no_ref";
@@ -105,6 +106,7 @@ export const hfCapabilityKeys: ReadonlyArray<keyof HFCapabilities> = [
   "image",
   "tools",
   "mtp",
+  "uncensored",
 ];
 
 /** Human labels for the HF-derived capability findings. */
@@ -114,6 +116,7 @@ export const hfCapabilityLabels: Record<string, string> = {
   image: "Image Gen",
   tools: "Tools",
   mtp: "MTP",
+  uncensored: "Uncensored",
 };
 
 /** Muted pastel badge classes per HF-derived capability key. */
@@ -123,6 +126,7 @@ export const hfCapabilityBadgeClass: Record<string, string> = {
   image: "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300",
   tools: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   mtp: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300",
+  uncensored: "bg-red-500/15 text-red-700 dark:text-red-300",
 };
 
 /** Human labels per HF model verification status. */

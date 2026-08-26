@@ -10,6 +10,7 @@ export const capabilityLabels: Record<string, string> = {
   image_to_image: "Img→Img",
   function_calling: "Function Calling",
   reranker: "Reranker",
+  uncensored: "Uncensored",
 };
 
 export interface CapabilityBadge {

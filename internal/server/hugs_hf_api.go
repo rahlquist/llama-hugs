@@ -580,6 +580,9 @@ func (s *Server) persistHFFindings(ctx context.Context, summary *hfVerifySummary
 			if res.Capabilities.MTP {
 				hfTags = append(hfTags, "hf:mtp")
 			}
+			if res.Capabilities.Uncensored {
+				hfTags = append(hfTags, "hf:uncensored")
+			}
 		case "unmatched":
 			hfTags = append(hfTags, "hf:unmatched")
 		case "unauthorized":
