@@ -114,7 +114,7 @@ describe("foundCapabilities", () => {
   });
 
   it("canonical order matches the exported key list", () => {
-    expect(foundCapabilities({ vision: true, audio: true, image: true, tools: true, mtp: true })).toEqual(
+    expect(foundCapabilities({ vision: true, audio: true, image: true, tools: true, mtp: true, uncensored: true })).toEqual(
       [...hfCapabilityKeys],
     );
   });
