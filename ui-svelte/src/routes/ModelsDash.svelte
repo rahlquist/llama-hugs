@@ -149,14 +149,16 @@
           · {model.aliases.join(", ")}
         {/if}
       </div>
-      {#if $showCapabilityTags && (badges.length > 0 || hugTags[model.id] || gpu.length > 0)}
+      {#if ( $showCapabilityTags && (badges.length > 0 || hugTags[model.id])) || gpu.length > 0}
         <div class="mt-1 hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
-          {#each badges as badge (badge.key)}
-            <Tag class={`px-1.5 text-[0.625rem] ${capabilityBadgeClass[badge.key] ?? ""}`}>{badge.label}</Tag>
-          {/each}
-          {#each (hugTags[model.id] ?? "").split(",").map((t) => t.trim()).filter((t) => t !== "") as hugTag (hugTag)}
-            <Tag class="bg-teal-500/15 text-teal-700 dark:text-teal-300 px-1.5 text-[0.625rem]">{hugTag}</Tag>
-          {/each}
+          {#if $showCapabilityTags}
+            {#each badges as badge (badge.key)}
+              <Tag class={`px-1.5 text-[0.625rem] ${capabilityBadgeClass[badge.key] ?? ""}`}>{badge.label}</Tag>
+            {/each}
+            {#each (hugTags[model.id] ?? "").split(",").map((t) => t.trim()).filter((t) => t !== "") as hugTag (hugTag)}
+              <Tag class="bg-teal-500/15 text-teal-700 dark:text-teal-300 px-1.5 text-[0.625rem]">{hugTag}</Tag>
+            {/each}
+          {/if}
           {#each gpu as badge (badge.label)}
             <Tag class={`px-1.5 text-[0.625rem] ${badge.className}`}>{badge.label}</Tag>
           {/each}
