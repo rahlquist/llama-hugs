@@ -292,3 +292,13 @@ curl -Ns 'http://host/logs/stream?no-history'
 Any OpenAI compatible server would work. llama-swap was originally designed for llama-server and it is the best supported.
 
 For Python based inference servers like vllm or tabbyAPI it is recommended to run them via podman or docker. This provides clean environment isolation as well as responding correctly to `SIGTERM` signals for proper shutdown.
+
+## GitHub Actions
+
+The repository previously contained these scheduled workflows:
+
+- **Build Containers** (`.github/workflows/containers.yml`) — built and published CPU, ROCm, CUDA, CUDA 13, Intel, MUSA, and Vulkan container images.
+- **Build Unified Docker Image** (`.github/workflows/unified-docker.yml`) — built and optionally published unified CUDA and Vulkan images.
+- **Close inactive issues** (`.github/workflows/closeinactive.yml`) — marked and closed inactive issues via `actions/stale`.
+
+These repository-authored workflows were removed on 2026-08-30. The GitHub-managed Dependency Graph entry was left unchanged.
