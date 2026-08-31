@@ -10,6 +10,7 @@
     best_tokens_per_s: number;
     run_at_unix: number;
     run_count: number;
+    max_memory_footprint?: number;
   }
 
   let rows = $state<LeaderboardRow[]>([]);
@@ -77,6 +78,7 @@
   const columns: Array<{ key: SortableColumn; label: string; right?: boolean }> = [
     { key: "model", label: "Model" },
     { key: "task", label: "Task" },
+    { key: "max_memory_footprint", label: "Max memory footprint", right: true },
     { key: "best_tokens_per_s", label: "Best tokens/s", right: true },
     { key: "run_count", label: "Runs", right: true },
     { key: "run_at_unix", label: "Last run" },
@@ -129,6 +131,7 @@
             <tr class="border-b last:border-0 hover:bg-muted/50 {r.best_tokens_per_s === bestForTask(r.task) ? 'bg-muted/30' : ''}">
               <td class="px-3 py-1.5 font-mono text-xs">{r.model}</td>
               <td class="px-3 py-1.5">{r.task}</td>
+              <td class="px-3 py-1.5 text-right">{r.max_memory_footprint ? `${(r.max_memory_footprint / 1073741824).toFixed(2)} GiB` : "—"}</td>
               <td class="px-3 py-1.5 text-right font-medium">
                 {r.best_tokens_per_s.toFixed(1)}
                 {#if r.best_tokens_per_s === bestForTask(r.task)}<span class="ml-1 text-xs text-yellow-500">★</span>{/if}
@@ -139,7 +142,7 @@
               </td>
             </tr>
           {:else}
-            <tr><td colspan="6" class="px-3 py-6 text-center text-muted-foreground">No benchmark data ingested.</td></tr>
+            <tr><td colspan="7" class="px-3 py-6 text-center text-muted-foreground">No benchmark data ingested.</td></tr>
           {/each}
         </tbody>
       </table>
