@@ -80,6 +80,7 @@
       </div>
       <h1
         contenteditable="true"
+        aria-label="Llama Hugs application title"
         class="truncate pb-0 text-base font-semibold outline-none rounded-md px-1 hover:bg-sidebar-accent group-data-[collapsible=icon]:hidden"
         onblur={handleBlur}
         onkeydown={handleKeyDown}
