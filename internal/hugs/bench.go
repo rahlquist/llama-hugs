@@ -70,12 +70,12 @@ type LeaderboardRow struct {
 func Leaderboard(ctx context.Context, db *sql.DB) ([]LeaderboardRow, error) {
 	// Smoke history is optional in older stores; create the minimal table so
 	// benchmark queries remain backwards-compatible.
-	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS hugs_models (model_id TEXT PRIMARY KEY); CREATE TABLE IF NOT EXISTS hugs_smoke_tests (model_id TEXT NOT NULL, gpu_vram_peak_bytes INTEGER NOT NULL DEFAULT 0)`); err != nil {
+	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS hugs_models (model_id TEXT PRIMARY KEY); CREATE TABLE IF NOT EXISTS hugs_smoke_tests (model_id TEXT NOT NULL, gpu_vram_peak_bytes INTEGER NOT NULL DEFAULT 0, gpu_vram_before_bytes INTEGER NOT NULL DEFAULT 0)`); err != nil {
 		return nil, fmt.Errorf("hugs: ensure smoke schema: %w", err)
 	}
 	rows, err := db.QueryContext(ctx, `
 		SELECT b.model, b.task, MAX(b.tokens_per_s), MAX(b.run_at), COUNT(*),
-			COALESCE((SELECT MAX(s.gpu_vram_peak_bytes) FROM hugs_smoke_tests s
+			COALESCE((SELECT MAX(s.gpu_vram_peak_bytes - COALESCE(s.gpu_vram_before_bytes, 0)) FROM hugs_smoke_tests s
 				JOIN hugs_models m ON m.model_id = s.model_id
 				WHERE m.model_id = 'hugs-' || b.model OR m.model_id = b.model), 0)
 		FROM hugs_bench b
