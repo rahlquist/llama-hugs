@@ -356,6 +356,15 @@ func (s *Server) routes() {
 	mux.Handle("POST /api/hugs/files/flags", apiChain.ThenFunc(s.handleHugsFileFlagsSet))
 	mux.Handle("POST /api/hugs/files/delete", apiChain.ThenFunc(s.handleHugsFilesDelete))
 
+	// Canonical model registry, ancillary assets, smoke-test history.
+	mux.Handle("GET /api/hugs/models", apiChain.ThenFunc(s.handleHugsModelsList))
+	mux.Handle("GET /api/hugs/models/{model}", apiChain.ThenFunc(s.handleHugsModelsGet))
+	mux.Handle("POST /api/hugs/models/{model}", apiChain.ThenFunc(s.handleHugsModelsUpsert))
+	mux.Handle("GET /api/hugs/models/{model}/assets", apiChain.ThenFunc(s.handleHugsModelsAssetsList))
+	mux.Handle("POST /api/hugs/models/{model}/assets", apiChain.ThenFunc(s.handleHugsModelsAssetsUpsert))
+	mux.Handle("GET /api/hugs/models/{model}/smoke", apiChain.ThenFunc(s.handleHugsModelsSmokeList))
+	mux.Handle("POST /api/hugs/models/{model}/smoke", apiChain.ThenFunc(s.handleHugsModelsSmokeInsert))
+
 	s.mux = mux
 	s.handler = chain.New(CreateRequestLogMiddleware(s.proxylog), CreateCORSMiddleware()).Then(mux)
 }
