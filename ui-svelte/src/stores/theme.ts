@@ -55,6 +55,10 @@ function getInitialThemeMode(): ThemeMode {
 // Persistent stores
 export const themeMode = persistentStore<ThemeMode>("theme-mode", getInitialThemeMode());
 export const themeName = persistentStore<ThemeName>("theme-name", "default");
+const storedAppTitle = typeof window !== "undefined" ? localStorage.getItem("app-title") : null;
+if (storedAppTitle === '"llama-swap"' || storedAppTitle === '"Llama Swap"') {
+  localStorage.setItem("app-title", JSON.stringify("llama-hugs"));
+}
 export const appTitle = persistentStore<string>("app-title", "llama-hugs");
 
 const prefersDarkQuery = "(prefers-color-scheme: dark)";
