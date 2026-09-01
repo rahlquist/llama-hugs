@@ -9,5 +9,5 @@ export const showUnlistedModels = persistentStore<boolean>(
 // each Models list row. Off by default to keep the list dense.
 export const showCapabilityTags = persistentStore<boolean>(
   "models-dash-show-capability-tags",
-  false,
+  true,
 );

@@ -68,16 +68,20 @@ type LeaderboardRow struct {
 
 // Leaderboard returns best-per-model×task rows sorted by BestTPS desc.
 func Leaderboard(ctx context.Context, db *sql.DB) ([]LeaderboardRow, error) {
-	// Smoke history is optional in older stores; create the minimal table so
-	// benchmark queries remain backwards-compatible.
-	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS hugs_models (model_id TEXT PRIMARY KEY); CREATE TABLE IF NOT EXISTS hugs_smoke_tests (model_id TEXT NOT NULL, gpu_vram_peak_bytes INTEGER NOT NULL DEFAULT 0, gpu_vram_before_bytes INTEGER NOT NULL DEFAULT 0)`); err != nil {
-		return nil, fmt.Errorf("hugs: ensure smoke schema: %w", err)
+	if err := ensureCanonical(ctx, db); err != nil {
+		return nil, fmt.Errorf("hugs: ensure canonical schema: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, ensureBenchDDL); err != nil {
+		return nil, fmt.Errorf("hugs: ensure bench schema: %w", err)
 	}
 	rows, err := db.QueryContext(ctx, `
 		SELECT b.model, b.task, MAX(b.tokens_per_s), MAX(b.run_at), COUNT(*),
-			COALESCE((SELECT MAX(s.gpu_vram_peak_bytes - COALESCE(s.gpu_vram_before_bytes, 0)) FROM hugs_smoke_tests s
+			COALESCE((SELECT MAX(s.gpu_vram_peak_bytes - s.gpu_vram_before_bytes) FROM hugs_smoke_tests s
 				JOIN hugs_models m ON m.model_id = s.model_id
-				WHERE m.model_id = 'hugs-' || b.model OR m.model_id = b.model), 0)
+				WHERE lower(replace(replace(replace(replace(replace(m.model_id, 'hugs-', ''), '_', '-'), '.gguf', ''), '.f16', ''), '-q8-0', '-q8')) = lower(replace(replace(replace(replace(replace(b.model, '_', '-'), '.gguf', ''), '.f16', ''), '-q8_0', '-q8'), '-q8-0', '-q8'))
+				   OR lower(replace(m.gguf_path, '_', '-')) LIKE '%' || lower(replace(replace(b.model, '_', '-'), '.gguf', '')) || '%'
+				   OR lower(replace(m.display_name, '_', '-')) LIKE '%' || lower(replace(b.model, '_', '-')) || '%'
+				   OR m.model_id = 'hugs-' || b.model OR m.model_id = b.model), 0)
 		FROM hugs_bench b
 		GROUP BY b.model, b.task`)
 	if err != nil {

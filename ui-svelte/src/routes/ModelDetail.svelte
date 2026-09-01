@@ -22,6 +22,7 @@
       $models.find((m) => m.aliases?.includes(modelId)),
   );
   let resolvedId = $derived(model?.id ?? modelId);
+  let activeTab = $state("activity");
 </script>
 
 <div class="flex h-full flex-col gap-4 overflow-y-auto p-2">
@@ -63,7 +64,7 @@
       </Card.Header>
     </Card.Root>
 
-    <Tabs value="activity" class="min-h-0 flex-1">
+    <Tabs bind:value={activeTab} class="min-h-0 flex-1">
       <TabsList variant="line">
         <TabsTrigger value="activity">Activity</TabsTrigger>
         <TabsTrigger value="logs">Logs</TabsTrigger>

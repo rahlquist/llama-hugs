@@ -11,7 +11,7 @@
     unloadAllModels,
   } from "../stores/api";
   import { statusDotColor } from "../stores/modelLoad";
-  import { showUnlistedModels as showUnlisted, showCapabilityTags } from "../stores/modelDisplay";
+  import { showUnlistedModels as showUnlisted } from "../stores/modelDisplay";
   import { listCapabilityBadges, capabilityBadgeClass } from "../lib/capabilities";
   import type { Model } from "../lib/types";
   import ModelLoadButton from "../components/ModelLoadButton.svelte";
@@ -149,16 +149,14 @@
           · {model.aliases.join(", ")}
         {/if}
       </div>
-      {#if ( $showCapabilityTags && (badges.length > 0 || hugTags[model.id])) || gpu.length > 0}
-        <div class="mt-1 hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
-          {#if $showCapabilityTags}
-            {#each badges as badge (badge.key)}
-              <Tag class={`px-1.5 text-[0.625rem] ${capabilityBadgeClass[badge.key] ?? ""}`}>{badge.label}</Tag>
-            {/each}
-            {#each (hugTags[model.id] ?? "").split(",").map((t) => t.trim()).filter((t) => t !== "") as hugTag (hugTag)}
-              <Tag class="bg-teal-500/15 text-teal-700 dark:text-teal-300 px-1.5 text-[0.625rem]">{hugTag}</Tag>
-            {/each}
-          {/if}
+      {#if badges.length > 0 || hugTags[model.id] || gpu.length > 0}
+        <div class="mt-1 flex min-w-0 flex-wrap items-center gap-1">
+          {#each badges as badge (badge.key)}
+            <Tag class={`px-1.5 text-[0.625rem] ${capabilityBadgeClass[badge.key] ?? ""}`}>{badge.label}</Tag>
+          {/each}
+          {#each (hugTags[model.id] ?? "").split(",").map((t) => t.trim()).filter((t) => t !== "") as hugTag (hugTag)}
+            <Tag class="bg-teal-500/15 text-teal-700 dark:text-teal-300 px-1.5 text-[0.625rem]">{hugTag}</Tag>
+          {/each}
           {#each gpu as badge (badge.label)}
             <Tag class={`px-1.5 text-[0.625rem] ${badge.className}`}>{badge.label}</Tag>
           {/each}
