@@ -1,0 +1,1 @@
+{"prompt": {"49": {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["60", 0], "lora_name": "ltx-2.3-22b-distilled-lora-1.1_fro90_ceil72_condsafe.safetensors", "strength_model": 0.7}}}, "client_id": "hermes-sulphur"}
