@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/rahlquist/llama-hugs/internal/config"
@@ -416,11 +417,14 @@ func TestHugsHFRescanVerifyDiscoversBySearchName(t *testing.T) {
 	}
 	searches := map[string][]string{}
 	fetched := map[string]int{}
+	var callsMu sync.Mutex
 	stubSearch := func(ctx context.Context, query string, limit int) ([]hugs.HFSearchResult, int, error) {
 		if limit != 20 {
 			t.Fatalf("search limit: %d", limit)
 		}
+		callsMu.Lock()
 		searches[query] = append(searches[query], "called")
+		callsMu.Unlock()
 		// Plausible HF Hub results for "qwen3.5-9b".
 		return []hugs.HFSearchResult{
 			{ID: "Qwen/Qwen3.5-9B-Instruct"},
@@ -429,7 +433,9 @@ func TestHugsHFRescanVerifyDiscoversBySearchName(t *testing.T) {
 		}, 200, nil
 	}
 	stubFetch := func(ctx context.Context, repoID string) (*hugs.HFModelMeta, int, error) {
+		callsMu.Lock()
 		fetched[repoID]++
+		callsMu.Unlock()
 		return hfMeta("Qwen/Qwen3.5-9B-Instruct", "text-generation", "function calling", "mtp-head"), 200, nil
 	}
 	s := hfRescanServer(t, models, stubFetch, stubSearch)

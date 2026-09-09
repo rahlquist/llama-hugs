@@ -13,11 +13,11 @@ import (
 
 // hugsPricingEntry is one model's pricing facts from the configured source.
 type hugsPricingEntry struct {
-	InputPerMTok   float64 `json:"input_per_mtok"`
-	OutputPerMTok  float64 `json:"output_per_mtok"`
-	Currency       string  `json:"currency,omitempty"`
-	Source         string  `json:"source"`
-	FetchedAtUnix  int64   `json:"fetched_at_unix"`
+	InputPerMTok  float64 `json:"input_per_mtok"`
+	OutputPerMTok float64 `json:"output_per_mtok"`
+	Currency      string  `json:"currency,omitempty"`
+	Source        string  `json:"source"`
+	FetchedAtUnix int64   `json:"fetched_at_unix"`
 }
 
 // handleHugsPricing GET /api/hugs/pricing
