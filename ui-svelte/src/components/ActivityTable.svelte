@@ -61,6 +61,7 @@
     compact?: boolean;
     emptyMessage?: string;
     cardClass?: string;
+    exportModel?: string;
   }
 
   let {
@@ -82,7 +83,34 @@
     compact = false,
     emptyMessage = "No activity recorded",
     cardClass = "",
+    exportModel,
   }: Props = $props();
+
+  function csvCell(value: unknown): string {
+    const text = value == null ? "" : String(value);
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  async function downloadModelActivity() {
+    if (!exportModel || total <= 0) return;
+    const response = await fetch(`/api/metrics/activity?model=${encodeURIComponent(exportModel)}&limit=999&page=1&sort=${encodeURIComponent(sort || "id")}&order=${order}`);
+    if (!response.ok) throw new Error(`Failed to export activity: ${response.status}`);
+    const page = await response.json();
+    const headers = ["ID", "Time", ...(showModelColumn ? ["Model"] : []), "Path", "Status", "Content-Type", "Cached", "Prompt", "Generated", "Drafted", "Prompt Speed", "Gen Speed", "Duration", "Capture", "Meta"];
+    const rows = page.data.map((entry: ActivityLogEntry) => [
+      entry.id + 1, entry.timestamp, ...(showModelColumn ? [entry.model] : []), entry.req_path || "", entry.resp_status_code || "", entry.resp_content_type || "",
+      entry.tokens.cache_tokens, entry.tokens.input_tokens, entry.tokens.output_tokens,
+      entry.tokens.draft_tokens > 0 ? `${((entry.tokens.draft_acc_tokens * 100) / entry.tokens.draft_tokens).toFixed(1)}% (${entry.tokens.draft_acc_tokens}/${entry.tokens.draft_tokens})` : "",
+      entry.tokens.prompt_per_second, entry.tokens.tokens_per_second, entry.duration_ms, entry.has_capture ? "yes" : "no", JSON.stringify(entry.metadata || {}),
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${exportModel.replace(/[^a-z0-9._-]+/gi, "-")}-activity.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   function formatDrafted(drafted: number, accepted: number): string {
     return drafted > 0
@@ -704,6 +732,11 @@
       {/if}
     </div>
     <div class="flex items-center gap-2">
+      {#if exportModel}
+        <Button variant="outline" size="sm" class="h-7 text-xs" onclick={downloadModelActivity} disabled={total <= 0} title="Download all recent activity as CSV">
+          Download CSV
+        </Button>
+      {/if}
       {#if showPagination}
         <span class="text-muted-foreground text-xs">Rows</span>
         <Select.Root

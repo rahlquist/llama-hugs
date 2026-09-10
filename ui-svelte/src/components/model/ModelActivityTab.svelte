@@ -126,5 +126,6 @@
   onSortChange={setSort}
   compact={true}
   title="Recent Activity"
+  exportModel={modelId}
   emptyMessage="No activity recorded for this model"
 />
