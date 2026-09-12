@@ -12,16 +12,18 @@
   import ModelDetailsTab from "../components/model/ModelDetailsTab.svelte";
   import ModelMemoryTab from "../components/model/ModelMemoryTab.svelte";
   import { modelServerPath } from "../lib/modelUtils";
+  import { resolveModelFamily, variantLabel } from "../lib/modelVariants";
+  import SegmentedControl from "../components/SegmentedControl.svelte";
 
   let modelId = $derived($params?.id ?? "");
 
-  // Resolve the route param to a model record by ID, falling back to an
-  // alias match so links to alias targets (e.g. selector targets) resolve.
+  let family = $derived(resolveModelFamily($models, modelId));
+  let selectedId = $state("");
   let model = $derived<Model | undefined>(
-    $models.find((m) => m.id === modelId) ??
-      $models.find((m) => m.aliases?.includes(modelId)),
+    family?.variants.find((variant) => variant.id === selectedId) ?? family?.selected,
   );
   let resolvedId = $derived(model?.id ?? modelId);
+  let selectedVariantIndex = $derived(Math.max(0, family?.variants.findIndex((variant) => variant.id === resolvedId) ?? 0));
   let activeTab = $state("activity");
 </script>
 
@@ -60,6 +62,17 @@
         {/if}
         {#if model.aliases && model.aliases.length > 0}
           <p class="text-muted-foreground text-xs">Aliases: {model.aliases.join(", ")}</p>
+        {/if}
+        {#if family && family.variants.length > 1}
+          <div class="mt-2 flex flex-wrap items-center gap-2 border-t pt-3">
+            <SegmentedControl
+              label="Implementation"
+              items={family.variants.map((variant) => ({ label: variantLabel(variant) }))}
+              selected={selectedVariantIndex}
+              onSelect={(index) => (selectedId = family?.variants[index]?.id ?? "")}
+            />
+            <span class="text-muted-foreground text-xs">Launch controls apply to the selected engine and GPU.</span>
+          </div>
         {/if}
       </Card.Header>
     </Card.Root>

@@ -28,6 +28,33 @@ type apiModel struct {
 	Aliases       []string       `json:"aliases,omitempty"`
 	Capabilities  map[string]any `json:"capabilities,omitempty"`
 	ContextLength int            `json:"context_length,omitempty"`
+	Family        string         `json:"family,omitempty"`
+	Backend       string         `json:"backend,omitempty"`
+	Driver        string         `json:"driver,omitempty"`
+}
+
+func modelVariantInfo(id string, mc config.ModelConfig) (string, string, string) {
+	family := ""
+	if value, ok := mc.Metadata["family"].(string); ok {
+		family = strings.ToLower(strings.TrimSpace(value))
+	}
+	if strings.HasPrefix(strings.ToLower(id), "hugs-") {
+		if family == "" {
+			family = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(id)), "hugs-")
+			family = strings.TrimSuffix(strings.TrimSuffix(family, "-cuda"), "_cuda")
+		}
+		backend := "llama.cpp"
+		if strings.Contains(strings.ToLower(mc.Cmd), "vllm") {
+			backend = "vllm"
+		}
+		driver := "rocm"
+		lowerID := strings.ToLower(id)
+		if strings.HasSuffix(lowerID, "-cuda") || strings.HasSuffix(lowerID, "_cuda") || strings.Contains(strings.ToUpper(strings.Join(mc.Env, " ")), "CUDA_VISIBLE_DEVICES=") {
+			driver = "cuda"
+		}
+		return family, backend, driver
+	}
+	return family, "", ""
 }
 
 type apiProfile struct {
@@ -113,6 +140,7 @@ func (s *Server) modelStatus() []apiModel {
 			state = string(st)
 		}
 		_, capsMap, _, ctxLen := renderCapabilities(mc.Capabilities)
+		family, backend, driver := modelVariantInfo(id, mc)
 		models = append(models, apiModel{
 			Id:            id,
 			Name:          mc.Name,
@@ -122,6 +150,9 @@ func (s *Server) modelStatus() []apiModel {
 			Aliases:       mc.Aliases,
 			Capabilities:  capsMap,
 			ContextLength: ctxLen,
+			Family:        family,
+			Backend:       backend,
+			Driver:        driver,
 		})
 	}
 

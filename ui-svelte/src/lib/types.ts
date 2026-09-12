@@ -24,6 +24,9 @@ export interface Model {
   aliases?: string[];
   capabilities?: ModelCapabilities;
   context_length?: number;
+  family?: string;
+  backend?: string;
+  driver?: string;
   // selector-only fields from the v1/models llamaswap metadata
   strategy?: string;
   targets?: string[];
