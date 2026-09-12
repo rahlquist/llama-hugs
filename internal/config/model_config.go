@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
 )
 
 const (
@@ -74,9 +75,32 @@ type CompatConfig struct {
 	IgnoreWebsockets bool `yaml:"ignoreWebsockets"`
 }
 
+// modelPickerID returns the compact backend/driver identifier used by model pickers.
+func modelPickerID(id string, mc ModelConfig) string {
+	if mc.PickerID != "" {
+		return mc.PickerID
+	}
+	if !strings.HasPrefix(strings.ToLower(id), "hugs-") {
+		return id
+	}
+	backend := "L"
+	if strings.Contains(strings.ToLower(mc.Cmd), "vllm") {
+		backend = "V"
+	}
+	driver := "R"
+	if strings.Contains(strings.ToLower(id), "-cuda") || strings.Contains(strings.ToUpper(strings.Join(mc.Env, " ")), "CUDA") {
+		driver = "C"
+	}
+	name := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(id)), "hugs-")
+	return strings.ToLower(backend+driver) + "-" + name
+}
+
 type ModelConfig struct {
-	Cmd           string   `yaml:"cmd"`
-	CmdStop       string   `yaml:"cmdStop"`
+	Cmd     string `yaml:"cmd"`
+	CmdStop string `yaml:"cmdStop"`
+	// PickerID is an optional short, stable identifier exposed by /v1/models.
+	// When empty, the server derives one from the backend, driver, and Name.
+	PickerID      string   `yaml:"pickerID"`
 	Proxy         string   `yaml:"proxy"`
 	Aliases       []string `yaml:"aliases"`
 	Env           []string `yaml:"env"`

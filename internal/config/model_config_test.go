@@ -129,6 +129,29 @@ models:
 	assert.False(t, cfg.Models["default"].Compat.IgnoreWebsockets)
 }
 
+func TestConfig_GeneratedPickerIDsRouteAndDisambiguate(t *testing.T) {
+	content := `
+models:
+  hugs-qwen3-8-27b-gsq-rco-iq3-s-mtp-a:
+    cmd: llama-server --port ${PORT}
+    name: Qwen3
+    pickerID: lr-qwen3-8-27b-gsq-rco-iq3-s-mtp
+  hugs-qwen3-8-27b-gsq-rco-iq3-s-mtp-b:
+    cmd: llama-server --port ${PORT}
+    name: Qwen3
+    pickerID: lr-qwen3-8-27b-gsq-rco-iq3-s-mtp
+`
+	cfg, err := LoadConfigFromReader(strings.NewReader(content))
+	assert.NoError(t, err)
+
+	model, found := cfg.RealModelName("lr-qwen3-8-27b-gsq-rco-iq3-s-mtp")
+	assert.True(t, found)
+	assert.Equal(t, "hugs-qwen3-8-27b-gsq-rco-iq3-s-mtp-a", model)
+	model, found = cfg.RealModelName("lr-qwen3-8-27b-gsq-rco-iq3-s-mtp-1")
+	assert.True(t, found)
+	assert.Equal(t, "hugs-qwen3-8-27b-gsq-rco-iq3-s-mtp-b", model)
+}
+
 func TestConfig_SetParamsByIDAutoAlias(t *testing.T) {
 	content := `
 models:

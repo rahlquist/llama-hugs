@@ -221,6 +221,11 @@ func (c *Config) RealModelName(search string) (string, bool) {
 	} else if name, found := c.aliases[search]; found {
 		return name, found
 	} else {
+		for name, model := range c.Models {
+			if modelPickerID(name, model) == search {
+				return name, true
+			}
+		}
 		return "", false
 	}
 }

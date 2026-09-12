@@ -131,6 +131,34 @@ func filterCappedMetadata(md map[string]any) map[string]any {
 	return filtered
 }
 
+// pickerModelID derives the compact model ID used by Hermes and other pickers.
+// Explicit PickerID wins; otherwise infer the runtime from the command and the
+// driver from the model's CUDA suffix or GPU environment.
+func pickerModelID(id string, mc config.ModelConfig) string {
+	if mc.PickerID != "" {
+		return mc.PickerID
+	}
+	if !strings.HasPrefix(strings.ToLower(id), "hugs-") {
+		return id
+	}
+	backend := "l"
+	if strings.Contains(strings.ToLower(mc.Cmd), "vllm") {
+		backend = "v"
+	}
+	driver := "r"
+	if strings.Contains(strings.ToLower(id), "-cuda") || strings.Contains(strings.ToUpper(strings.Join(mc.Env, " ")), "CUDA") {
+		driver = "c"
+	}
+	return backend + driver + "-" + strings.TrimPrefix(strings.ToLower(strings.TrimSpace(id)), "hugs-")
+}
+
+func pickerModelLabel(id string, mc config.ModelConfig) string {
+	if !strings.HasPrefix(strings.ToLower(id), "hugs-") && mc.PickerID == "" {
+		return mc.Name
+	}
+	return pickerModelID(id, mc)
+}
+
 // handleListModels serves the OpenAI-compatible model listing: local models
 // (with optional aliases) plus peer models.
 func (s *Server) handleListModels(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +213,18 @@ func (s *Server) handleListModels(w http.ResponseWriter, r *http.Request) {
 		return rec
 	}
 
+	pickerCounts := make(map[string]int)
 	for id, mc := range s.cfg.Models {
+		base := pickerModelID(id, mc)
+		pickerCounts[base]++
+	}
+	pickerSeen := make(map[string]int)
+	for id, mc := range s.cfg.Models {
+		pickerID := pickerModelID(id, mc)
+		if pickerCounts[pickerID] > 1 {
+			pickerID += fmt.Sprintf("-%d", pickerSeen[pickerID])
+			pickerSeen[pickerModelID(id, mc)]++
+		}
 		modelIDs[id] = struct{}{}
 		for _, alias := range mc.Aliases {
 			modelIDs[alias] = struct{}{}
@@ -195,11 +234,14 @@ func (s *Server) handleListModels(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		status := modelStatus(id)
-		internalMetadata := map[string]any{"type": "model"}
+		internalMetadata := map[string]any{"type": "model", "legacy_id": id}
+		if pickerID != id {
+			internalMetadata["picker_id"] = pickerID
+		}
 		if len(mc.Aliases) > 0 {
 			internalMetadata["aliases"] = mc.Aliases
 		}
-		data = append(data, newRecord(id, mc.Name, mc.Description, mc.Metadata, mc.Capabilities, status, internalMetadata))
+		data = append(data, newRecord(pickerID, pickerModelLabel(id, mc), mc.Description, mc.Metadata, mc.Capabilities, status, internalMetadata))
 
 		if s.cfg.IncludeAliasesInList {
 			for _, alias := range mc.Aliases {

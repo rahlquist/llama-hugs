@@ -107,8 +107,27 @@ func LoadConfigFromReader(r io.Reader) (Config, error) {
 		return Config{}, fmt.Errorf("logToStdout must be one of: proxy, upstream, both, none")
 	}
 
-	// Populate the aliases map
+	// Populate the aliases map. Generated picker IDs are assigned in sorted model
+	// order so collision suffixes are deterministic and routable.
 	config.aliases = make(map[string]string)
+	modelNames := make([]string, 0, len(config.Models))
+	for modelName := range config.Models {
+		modelNames = append(modelNames, modelName)
+	}
+	sort.Strings(modelNames)
+	pickerCounts := make(map[string]int)
+	for _, modelName := range modelNames {
+		modelConfig := config.Models[modelName]
+		base := modelPickerID(modelName, modelConfig)
+		pickerID := base
+		if pickerCounts[base] > 0 {
+			pickerID = fmt.Sprintf("%s-%d", base, pickerCounts[base])
+		}
+		pickerCounts[base]++
+		if pickerID != modelName {
+			config.aliases[pickerID] = modelName
+		}
+	}
 	for modelName, modelConfig := range config.Models {
 		for _, alias := range modelConfig.Aliases {
 			if _, found := config.aliases[alias]; found {
