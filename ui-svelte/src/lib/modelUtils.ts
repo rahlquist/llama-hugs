@@ -11,6 +11,13 @@ export function modelServerPath(modelId: string): string {
   return `/upstream/${encodeURIComponent(modelId)}/`;
 }
 
+export function modelInteractivePath(model: Model): string {
+  if (model.backend?.toLowerCase() === "vllm") {
+    return `/ui/#/playground?model=${encodeURIComponent(model.picker_id ?? model.id)}`;
+  }
+  return modelServerPath(model.id);
+}
+
 export function matchesCapabilities(model: Model, required: string[], matchAny = false): boolean {
   if (!required.length) return true;
   if (!model.capabilities) return false;

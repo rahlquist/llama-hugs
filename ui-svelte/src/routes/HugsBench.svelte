@@ -3,6 +3,7 @@
   import { Trophy, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
+  import { formatDateTime } from "../lib/format";
 
   interface LeaderboardRow {
     model: string;
@@ -138,7 +139,7 @@
               </td>
               <td class="px-3 py-1.5 text-right text-muted-foreground">{r.run_count}</td>
               <td class="px-3 py-1.5 whitespace-nowrap text-muted-foreground">
-                {new Date(r.run_at_unix * 1000).toLocaleDateString()}
+                {formatDateTime(r.run_at_unix * 1000)}
               </td>
             </tr>
           {:else}

@@ -11,9 +11,10 @@
   import ModelLogsTab from "../components/model/ModelLogsTab.svelte";
   import ModelDetailsTab from "../components/model/ModelDetailsTab.svelte";
   import ModelMemoryTab from "../components/model/ModelMemoryTab.svelte";
-  import { modelServerPath } from "../lib/modelUtils";
+  import { modelInteractivePath } from "../lib/modelUtils";
   import { resolveModelFamily, variantLabel } from "../lib/modelVariants";
   import SegmentedControl from "../components/SegmentedControl.svelte";
+  import Tag from "../components/Tag.svelte";
 
   let modelId = $derived($params?.id ?? "");
 
@@ -41,15 +42,18 @@
           <Card.Title class="text-lg">{model.name || model.id}</Card.Title>
           <span class="text-muted-foreground text-sm">({model.id})</span>
           <span class="text-muted-foreground text-xs uppercase tracking-wide">{model.state}</span>
+          {#if model.backend?.toLowerCase() === "vllm"}
+            <Tag class="bg-yellow-300 text-yellow-950 ring-1 ring-yellow-400 px-1.5 text-[0.625rem] font-bold dark:bg-yellow-300 dark:text-yellow-950">vLLM</Tag>
+          {/if}
           <div class="ml-auto flex items-center gap-2">
             {#if !model.peerID}
               <a
-                href={modelServerPath(resolvedId)}
-                target="_blank"
+                href={modelInteractivePath(model)}
+                target={model.backend?.toLowerCase() === "vllm" ? undefined : "_blank"}
                 rel="noopener noreferrer"
                 class="text-muted-foreground hover:text-foreground"
-                title="Open model server"
-                aria-label="Open model server"
+                title={model.backend?.toLowerCase() === "vllm" ? "Open interactive playground" : "Open model server"}
+                aria-label={model.backend?.toLowerCase() === "vllm" ? "Open interactive playground" : "Open model server"}
               >
                 <ExternalLink class="size-4" />
               </a>

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { HardDrive, RefreshCw, Flag, FlagOff, Trash2 } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button/index.js";
+  import { formatDateTime } from "../lib/format";
 
   interface FileEntry {
     path: string;
@@ -211,7 +212,7 @@
               </td>
               <td class="px-3 py-1.5 whitespace-nowrap">{formatBytes(f.size_bytes)}</td>
               <td class="px-3 py-1.5 whitespace-nowrap text-muted-foreground">
-                {new Date(f.mtime_unix * 1000).toLocaleDateString()}
+                {formatDateTime(f.mtime_unix * 1000)}
               </td>
               <td class="px-3 py-1.5">
                 {#if orphanSet.has(f.name)}

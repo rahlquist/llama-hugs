@@ -42,24 +42,20 @@ export function formatCapacity(bytes: number): string {
   return `${value.toFixed(precision)} ${units[unit]}`;
 }
 
-/** Format a timestamp as a relative time or local timestamp when older than a day. */
-export function formatRelativeTime(timestamp: string): string {
-  const now = new Date();
-  const date = new Date(timestamp);
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  if (diffInSeconds < 5) return "now";
-  if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours}h ago`;
+/** Format a timestamp as an absolute local date and time. */
+export function formatDateTime(value: string | number | Date): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
   const datePart = [
     date.getFullYear(),
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0"),
   ].join("-");
   const timePart = [date.getHours(), date.getMinutes(), date.getSeconds()]
-    .map((value) => String(value).padStart(2, "0"))
+    .map((part) => String(part).padStart(2, "0"))
     .join(":");
   return `${datePart} ${timePart}`;
 }
+
+/** Backward-compatible name; relative timestamps are intentionally forbidden. */
+export const formatRelativeTime = formatDateTime;

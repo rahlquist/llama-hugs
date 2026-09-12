@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Model } from "./types";
 import { modelFamily, resolveModelFamily, variantLabel } from "./modelVariants";
+import { modelInteractivePath } from "./modelUtils";
 
 const model = (id: string, overrides: Partial<Model> = {}): Model => ({
   id,
@@ -30,6 +31,11 @@ describe("model variants", () => {
   it("preserves peer model detail resolution", () => {
     const peer = model("remote/model", { peerID: "remote" });
     expect(resolveModelFamily([peer], peer.id)?.selected).toBe(peer);
+  });
+
+  it("opens vLLM in the interactive playground using its public picker ID", () => {
+    expect(modelInteractivePath(model("hugs-qwen", { backend: "vllm", picker_id: "vr-qwen" }))).toBe("/ui/#/playground?model=vr-qwen");
+    expect(modelInteractivePath(model("gemma"))).toBe("/upstream/gemma/");
   });
 
   it("preselects an exact variant and resolves a family route", () => {

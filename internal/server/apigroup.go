@@ -31,6 +31,7 @@ type apiModel struct {
 	Family        string         `json:"family,omitempty"`
 	Backend       string         `json:"backend,omitempty"`
 	Driver        string         `json:"driver,omitempty"`
+	PickerID      string         `json:"picker_id,omitempty"`
 }
 
 func modelVariantInfo(id string, mc config.ModelConfig) (string, string, string) {
@@ -153,6 +154,7 @@ func (s *Server) modelStatus() []apiModel {
 			Family:        family,
 			Backend:       backend,
 			Driver:        driver,
+			PickerID:      pickerModelID(id, mc),
 		})
 	}
 

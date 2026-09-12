@@ -56,23 +56,15 @@
     return Date.now() - WINDOWS[$selectedWindow].ms;
   }
 
-  function formatDelta(ts: string, refTime: number): string {
-    const diffMs = new Date(ts).getTime() - refTime;
-    const diffSec = Math.round(diffMs / 1000);
-    const absSec = Math.abs(diffSec);
-    const sign = diffSec <= 0 ? "-" : "+";
-    if (absSec < 60) return `${sign}${absSec}s`;
-    const min = Math.floor(absSec / 60);
-    const sec = absSec % 60;
-    if (sec === 0) return `${sign}${min}m`;
-    return `${sign}${min}:${sec.toString().padStart(2, "0")}`;
+  function formatChartTime(ts: string): string {
+    const date = new Date(ts);
+    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
   }
 
   const sysLabels = $derived.by(() => {
     const stats = filteredSysStats;
     if (stats.length === 0) return [];
-    const refTime = new Date(stats[stats.length - 1].timestamp).getTime();
-    return stats.map((s) => formatDelta(s.timestamp, refTime));
+    return stats.map((s) => formatChartTime(s.timestamp));
   });
 
   async function loadAll() {
@@ -293,8 +285,7 @@
   const netBandwidthLabels = $derived.by(() => {
     const stats = filteredSysStats;
     if (stats.length < 2) return [];
-    const refTime = new Date(stats[stats.length - 1].timestamp).getTime();
-    return stats.slice(1).map((s) => formatDelta(s.timestamp, refTime));
+    return stats.slice(1).map((s) => formatChartTime(s.timestamp));
   });
 
   // --- GPU charts (filtered by time window) ---
@@ -308,9 +299,8 @@
     const labels: string[] = [];
     const stats = filteredGpuStats;
     if (stats.length === 0) return [];
-    const refTime = new Date(stats[stats.length - 1].timestamp).getTime();
     for (const g of stats) {
-      const label = formatDelta(g.timestamp, refTime);
+      const label = formatChartTime(g.timestamp);
       if (!seen.has(label)) {
         seen.add(label);
         labels.push(label);

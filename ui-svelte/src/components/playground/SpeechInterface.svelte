@@ -11,6 +11,7 @@
   import * as Select from "$lib/components/ui/select/index.js";
   import { RefreshCw, Download } from "@lucide/svelte";
   import { playgroundSessionHeaders } from "../../lib/playgroundSession";
+  import { formatDateTime } from "../../lib/format";
 
   const iface = createPlaygroundInterface("playground-speech-model", playgroundStores.speechGenerating);
   const selectedModelStore = iface.selectedModel;
@@ -201,13 +202,7 @@
   }
 
   function formatTimestamp(date: Date): string {
-    return date.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    return formatDateTime(date);
   }
 
   function handleKeyDown(event: KeyboardEvent) {

@@ -3,6 +3,7 @@
   import { persistentStore } from "../../stores/persistent";
   import { streamChatCompletion, type Endpoint } from "../../lib/chatApi";
   import { playgroundStores } from "../../stores/playgroundActivity";
+  import { selectedPlaygroundTab } from "../../stores/playground";
   import type { ChatMessage, ContentPart } from "../../lib/types";
   import ChatMessageComponent from "./ChatMessage.svelte";
   import ModelSelector from "./ModelSelector.svelte";
@@ -22,6 +23,15 @@
   const temperatureStore = persistentStore<number>("playground-temperature", 0.7);
   const endpointStore = persistentStore<Endpoint>("playground-endpoint", "v1/chat/completions");
   const maxTokensStore = persistentStore<number>("playground-max-tokens", 4096);
+
+  if (typeof window !== "undefined") {
+    const query = window.location.hash.split("?", 2)[1];
+    const requestedModel = new URLSearchParams(query ?? "").get("model");
+    if (requestedModel) {
+      selectedModelStore.set(requestedModel);
+      selectedPlaygroundTab.set("chat");
+    }
+  }
 
   function loadMessages(): ChatMessage[] {
     try {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { formatDuration, formatSpeed, formatFileSize, formatCapacity, formatRelativeTime } from "./format";
 
 describe("formatDuration", () => {
@@ -56,20 +56,11 @@ describe("formatCapacity", () => {
 });
 
 describe("formatRelativeTime", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("formats relative times", () => {
-    const now = new Date("2026-06-28T12:00:00Z");
-    vi.useFakeTimers();
-    vi.setSystemTime(now);
-
-    expect(formatRelativeTime("2026-06-28T11:59:58Z")).toBe("now");
-    expect(formatRelativeTime("2026-06-28T11:59:30Z")).toBe("30s ago");
-    expect(formatRelativeTime("2026-06-28T11:55:00Z")).toBe("5m ago");
-    expect(formatRelativeTime("2026-06-28T09:00:00Z")).toBe("3h ago");
-    const olderThanOneDay = new Date(2026, 5, 25, 12, 34, 56);
-    expect(formatRelativeTime(olderThanOneDay.toISOString())).toBe("2026-06-25 12:34:56");
+  it("always uses an absolute local date and time", () => {
+    const recent = new Date(2026, 5, 28, 11, 59, 58);
+    const older = new Date(2026, 5, 25, 12, 34, 56);
+    expect(formatRelativeTime(recent.toISOString())).toBe("2026-06-28 11:59:58");
+    expect(formatRelativeTime(older.toISOString())).toBe("2026-06-25 12:34:56");
+    expect(formatRelativeTime("invalid")).toBe("—");
   });
 });

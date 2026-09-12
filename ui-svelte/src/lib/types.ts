@@ -27,6 +27,7 @@ export interface Model {
   family?: string;
   backend?: string;
   driver?: string;
+  picker_id?: string;
   // selector-only fields from the v1/models llamaswap metadata
   strategy?: string;
   targets?: string[];

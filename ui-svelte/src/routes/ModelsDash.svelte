@@ -22,7 +22,7 @@
   import * as Label from "$lib/components/ui/label/index.js";
   import { PowerOff, Loader2, ExternalLink, SquareStack, RefreshCw, HardDrive, Globe } from "@lucide/svelte";
   import { modelServerPath } from "../lib/modelUtils";
-  import { formatCapacity } from "../lib/format";
+  import { formatCapacity, formatDateTime } from "../lib/format";
   import {
     summarizeHFRescan,
     type HFRescanResponse,
@@ -149,7 +149,7 @@
           · {model.aliases.join(", ")}
         {/if}
       </div>
-      {#if badges.length > 0 || hugTags[model.id] || gpu.length > 0}
+      {#if badges.length > 0 || hugTags[model.id] || gpu.length > 0 || model.backend?.toLowerCase() === "vllm"}
         <div class="mt-1 flex min-w-0 flex-wrap items-center gap-1">
           {#each badges as badge (badge.key)}
             <Tag class={`px-1.5 text-[0.625rem] ${capabilityBadgeClass[badge.key] ?? ""}`}>{badge.label}</Tag>
@@ -160,6 +160,9 @@
           {#each gpu as badge (badge.label)}
             <Tag class={`px-1.5 text-[0.625rem] ${badge.className}`}>{badge.label}</Tag>
           {/each}
+          {#if model.backend?.toLowerCase() === "vllm"}
+            <Tag class="bg-yellow-300 text-yellow-950 ring-1 ring-yellow-400 px-1.5 text-[0.625rem] font-bold dark:bg-yellow-300 dark:text-yellow-950">vLLM</Tag>
+          {/if}
         </div>
       {/if}
     </a>
@@ -302,7 +305,7 @@
             <Card.Title class="text-sm">HF cache &amp; model verification</Card.Title>
             <span class="text-muted-foreground ml-auto text-xs" title={scanSummary.root}>
               {scanSummary.scannedAtUnix > 0
-                ? `scanned ${new Date(scanSummary.scannedAtUnix * 1000).toLocaleTimeString()}`
+                ? `scanned ${formatDateTime(scanSummary.scannedAtUnix * 1000)}`
                 : "scan pending"}
             </span>
           </div>
