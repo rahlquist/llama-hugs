@@ -71,23 +71,23 @@ Built in Go for performance and simplicity, llama-hugs has zero dependencies and
 
 llama-hugs includes a real time web interface with a playground for testing out all sorts of local models:
 
-<img width="1094" height="667" alt="image" src="https://github.com/user-attachments/assets/a79b3cea-5ee1-45f1-8db9-5f5331690e64" />
+![Activity dashboard](docs/assets/ui-activity.png)
 
-View detailed token metrics:
+Browse and launch configured models:
 
-<img width="1090" height="672" alt="image" src="https://github.com/user-attachments/assets/145f4ece-af2f-4a45-a3c1-45ae5d3c7e7f" />
+![Models page](docs/assets/ui-models.png)
 
-Inspect request and responses:
+Live system and GPU performance monitoring:
 
-<img width="1078" height="668" alt="image" src="https://github.com/user-attachments/assets/947cda4f-9aa1-4fa5-a550-5c469968c1d9" />
+![Performance page](docs/assets/ui-performance.png)
 
-Manually load and unload models:
+Hardware inventory:
 
-<img width="1088" height="659" alt="image" src="https://github.com/user-attachments/assets/b6b850f3-c5b0-4c14-ba90-be2de25b51c7" />
+![Hardware page](docs/assets/ui-hardware.png)
 
 Real time log streaming:
 
-<img width="1087" height="668" alt="image" src="https://github.com/user-attachments/assets/9bb0c362-862c-4e68-820c-4c977fc9de4e" />
+![Log viewer](docs/assets/ui-logs.png)
 
 ## Installation
 
