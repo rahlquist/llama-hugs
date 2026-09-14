@@ -1,12 +1,13 @@
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/mostlygeek/llama-swap/total)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mostlygeek/llama-swap/go-ci.yml)
-![GitHub Repo stars](https://img.shields.io/github/stars/mostlygeek/llama-swap)
+![llama-hugs header image](docs/assets/hero4.webp)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/rahlquist/llama-hugs/total)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/rahlquist/llama-hugs/go-ci.yml)
+![GitHub Repo stars](https://img.shields.io/github/stars/rahlquist/llama-hugs)
 
 # llama-hugs
 
-Run multiple generative AI models on your machine and hot-swap between them on demand. llama-swap works with any OpenAI and Anthropic API compatible server and is used by thousands of people to power their local AI workflows.
+Run multiple generative AI models on your machine and hot-swap between them on demand. llama-hugs works with any OpenAI and Anthropic API compatible server and is used by thousands of people to power their local AI workflows.
 
-Built in Go for performance and simplicity, llama-swap has zero dependencies and is incredibly easy to set up. Get started in minutes - just one binary and one configuration file.
+Built in Go for performance and simplicity, llama-hugs has zero dependencies and is incredibly easy to set up. Get started in minutes - just one binary and one configuration file.
 
 ## Features:
 
@@ -19,8 +20,8 @@ Built in Go for performance and simplicity, llama-swap has zero dependencies and
   - `v1/responses`
   - `v1/embeddings`
   - `v1/models` - list available models
-  - `v1/audio/speech` ([#36](https://github.com/mostlygeek/llama-swap/issues/36))
-  - `v1/audio/transcriptions` ([docs](https://github.com/mostlygeek/llama-swap/issues/41#issuecomment-2722637867))
+  - `v1/audio/speech` ([#36](https://github.com/rahlquist/llama-hugs/issues/36))
+  - `v1/audio/transcriptions` ([docs](https://github.com/rahlquist/llama-hugs/issues/41#issuecomment-2722637867))
   - `v1/audio/voices`
   - `v1/images/generations`
   - `v1/images/edits`
@@ -39,12 +40,12 @@ Built in Go for performance and simplicity, llama-swap has zero dependencies and
   - `/sdapi/v1/loras` - requires `model` in request body to fetch the correct loras
 - ✅ [audio.cpp](https://github.com/0xShug0/audio.cpp) supported [extra endpoints](https://github.com/0xShug0/audio.cpp/blob/main/app/server/README.md#post-v1tasksrun)
   - `/audioapi/v1/tasks/run`
-- ✅ `/comfyui/` - ComfyUI custom endpoint ([#1001](https://github.com/mostlygeek/llama-swap/issues/1001)) for more reliable swapping
-- ✅ llama-swap API
+- ✅ `/comfyui/` - ComfyUI custom endpoint ([#1001](https://github.com/rahlquist/llama-hugs/issues/1001)) for more reliable swapping
+- ✅ llama-hugs API
   - `/ui` - web UI
-  - `/upstream/:model_id` - direct access to upstream server ([demo](https://github.com/mostlygeek/llama-swap/pull/31))  
-  - `/running` - list currently running models ([#61](https://github.com/mostlygeek/llama-swap/issues/61))
-  - `POST /api/models/unload` - manually unload all running models ([#58](https://github.com/mostlygeek/llama-swap/issues/58))
+  - `/upstream/:model_id` - direct access to upstream server ([demo](https://github.com/rahlquist/llama-hugs/pull/31))
+  - `/running` - list currently running models ([#61](https://github.com/rahlquist/llama-hugs/issues/61))
+  - `POST /api/models/unload` - manually unload all running models ([#58](https://github.com/rahlquist/llama-hugs/issues/58))
   - `POST /api/models/unload/:model_id` - unload a specific model
   - `GET /api/profiles` - list configured profiles and the active selection
   - `PUT /api/profiles/active` - activate a profile or select none
@@ -61,15 +62,15 @@ Built in Go for performance and simplicity, llama-swap has zero dependencies and
 - ✅ API Key support - define keys to restrict access to API endpoints
 - ✅ Customization
   - Switch model ID routing at runtime with profiles
-  - Run concurrent models with a custom DSL swap matrix ([#643](https://github.com/mostlygeek/llama-swap/issues/643))
+  - Run concurrent models with a custom DSL swap matrix ([#643](https://github.com/rahlquist/llama-hugs/issues/643))
   - Automatic unloading of models after timeout by setting a `ttl`
   - Docker and Podman support using `cmd` and `cmdStop` together
-  - Preload models on startup with `hooks` ([#235](https://github.com/mostlygeek/llama-swap/pull/235))
+  - Preload models on startup with `hooks` ([#235](https://github.com/rahlquist/llama-hugs/pull/235))
   - Apply filters to requests to control inference with `stripParams`, `setParams` and `setParamsByID`
 
 ### Web UI
 
-llama-swap includes a real time web interface with a playground for testing out all sorts of local models:
+llama-hugs includes a real time web interface with a playground for testing out all sorts of local models:
 
 <img width="1094" height="667" alt="image" src="https://github.com/user-attachments/assets/a79b3cea-5ee1-45f1-8db9-5f5331690e64" />
 
@@ -91,7 +92,7 @@ Real time log streaming:
 
 ## Installation
 
-llama-swap can be installed in multiple ways
+llama-hugs can be installed in multiple ways
 
 1. Docker
 2. Homebrew (macOS and Linux)
@@ -100,35 +101,35 @@ llama-swap can be installed in multiple ways
 5. From release binaries
 6. From source
 
-### Docker Install ([download images](https://github.com/mostlygeek/llama-swap/pkgs/container/llama-swap))
+### Docker Install ([download images](https://github.com/rahlquist/llama-hugs/pkgs/container/llama-hugs))
 
-Two types of container images are built nightly for llama-swap:
+Two types of container images are built nightly for llama-hugs:
 
-1. A unified container with llama-server, ik-llama-server, stable-diffusion.cpp, whisper.cpp and llama-swap built from source. This is only available for cuda and vulkan but has more capabilities. This one is recommended for use.
-2. A legacy image that is based on llama.cpp's images and llama-swap copied into the container. Use this one if you prefer to stay close to llama.cpp's container images.
+1. A unified container with llama-server, ik-llama-server, stable-diffusion.cpp, whisper.cpp and llama-hugs built from source. This is only available for cuda and vulkan but has more capabilities. This one is recommended for use.
+2. A legacy image that is based on llama.cpp's images and llama-hugs copied into the container. Use this one if you prefer to stay close to llama.cpp's container images.
 
 #### Unified container (Recommended)
 
 ```shell
-$ docker pull ghcr.io/mostlygeek/llama-swap:unified-cuda
+$ docker pull ghcr.io/rahlquist/llama-hugs:unified-cuda
 
 # run with a custom configuration and models directory
 $ docker run -it --rm --runtime nvidia -p 9292:8080 \
  -v /path/to/models:/models \
- -v /path/to/custom/config.yaml:/etc/llama-swap/config/config.yaml \
- ghcr.io/mostlygeek/llama-swap:unified-cuda
+ -v /path/to/custom/config.yaml:/etc/llama-hugs/config/config.yaml \
+ ghcr.io/rahlquist/llama-hugs:unified-cuda
 ```
 
 #### Legacy container
 
 ```shell
-$ docker pull ghcr.io/mostlygeek/llama-swap:cuda
+$ docker pull ghcr.io/rahlquist/llama-hugs:cuda
 
 # run with a custom configuration and models directory
 $ docker run -it --rm --runtime nvidia -p 9292:8080 \
  -v /path/to/models:/models \
  -v /path/to/custom/config.yaml:/app/config.yaml \
- ghcr.io/mostlygeek/llama-swap:cuda
+ ghcr.io/rahlquist/llama-hugs:cuda
 ```
 
 <details>
@@ -138,17 +139,17 @@ more examples
 
 ```shell
 # pull latest images per platform
-docker pull ghcr.io/mostlygeek/llama-swap:cpu
-docker pull ghcr.io/mostlygeek/llama-swap:cuda
-docker pull ghcr.io/mostlygeek/llama-swap:vulkan
-docker pull ghcr.io/mostlygeek/llama-swap:intel
-docker pull ghcr.io/mostlygeek/llama-swap:musa
+docker pull ghcr.io/rahlquist/llama-hugs:cpu
+docker pull ghcr.io/rahlquist/llama-hugs:cuda
+docker pull ghcr.io/rahlquist/llama-hugs:vulkan
+docker pull ghcr.io/rahlquist/llama-hugs:intel
+docker pull ghcr.io/rahlquist/llama-hugs:musa
 
-# tagged llama-swap, platform and llama-server version images
-docker pull ghcr.io/mostlygeek/llama-swap:v166-cuda-b6795
+# tagged llama-hugs, platform and llama-server version images
+docker pull ghcr.io/rahlquist/llama-hugs:v166-cuda-b6795
 
 # non-root cuda
-docker pull ghcr.io/mostlygeek/llama-swap:cuda-non-root
+docker pull ghcr.io/rahlquist/llama-hugs:cuda-non-root
 
 ```
 
@@ -157,44 +158,44 @@ docker pull ghcr.io/mostlygeek/llama-swap:cuda-non-root
 ### Homebrew Install (macOS/Linux)
 
 ```shell
-brew tap mostlygeek/llama-swap
-brew install llama-swap
-llama-swap --config path/to/config.yaml --listen localhost:8080
+brew tap rahlquist/llama-hugs
+brew install llama-hugs
+llama-hugs --config path/to/config.yaml --listen localhost:8080
 ```
 
 ### MacPorts (macOS)
 
 > [!NOTE]
-> Maintained by MacPorts community - [llama-swap port](https://ports.macports.org/port/llama-swap). It is not an official part of llama-swap.
+> Maintained by MacPorts community - [llama-hugs port](https://ports.macports.org/port/llama-hugs). It is not an official part of llama-hugs.
 
 ```shell
-sudo port install llama-swap
-llama-swap --config path/to/config.yaml --listen localhost:8080
+sudo port install llama-hugs
+llama-hugs --config path/to/config.yaml --listen localhost:8080
 ```
 
 ### WinGet Install (Windows)
 
 > [!NOTE]
-> WinGet is maintained by community contributor [Dvd-Znf](https://github.com/Dvd-Znf) ([#327](https://github.com/mostlygeek/llama-swap/issues/327)). It is not an official part of llama-swap.
+> WinGet is maintained by community contributor [Dvd-Znf](https://github.com/Dvd-Znf) ([#327](https://github.com/rahlquist/llama-hugs/issues/327)). It is not an official part of llama-hugs.
 
 ```shell
 # install
-C:\> winget install llama-swap
+C:\> winget install llama-hugs
 
 # upgrade
-C:\> winget upgrade llama-swap
+C:\> winget upgrade llama-hugs
 ```
 
 ### Pre-built Binaries
 
-Binaries are available on the [release](https://github.com/mostlygeek/llama-swap/releases) page for Linux, Mac, Windows and FreeBSD.
+Binaries are available on the [release](https://github.com/rahlquist/llama-hugs/releases) page for Linux, Mac, Windows and FreeBSD.
 
 ### Building from source
 
 1. Building requires Go and Node.js (for UI).
-1. `git clone https://github.com/mostlygeek/llama-swap.git`
+1. `git clone https://github.com/rahlquist/llama-hugs.git`
 1. `make clean all`
-1. look in the `build/` subdirectory for the llama-swap binary
+1. look in the `build/` subdirectory for the llama-hugs binary
 
 ## Configuration
 
@@ -231,35 +232,35 @@ Almost all configuration settings are optional and can be added one step at a ti
 
 See the [configuration documentation](docs/configuration.md) for all options.
 
-## How does llama-swap work?
+## How does llama-hugs work?
 
-When a request is made to an OpenAI compatible endpoint, llama-swap will extract the `model` value and load the appropriate server configuration to serve it. If the wrong upstream server is running, it will be replaced with the correct one. This is where the "swap" part comes in. The upstream server is automatically swapped to handle the request correctly.
+When a request is made to an OpenAI compatible endpoint, llama-hugs will extract the `model` value and load the appropriate server configuration to serve it. If the wrong upstream server is running, it will be replaced with the correct one. This is where the "swap" part comes in. The upstream server is automatically swapped to handle the request correctly.
 
-In the most basic configuration llama-swap handles one model at a time. For more advanced use cases, using a `matrix` allows multiple models to be loaded at the same time. You have complete control over how your system resources are used.
+In the most basic configuration llama-hugs handles one model at a time. For more advanced use cases, using a `matrix` allows multiple models to be loaded at the same time. You have complete control over how your system resources are used.
 
 ## Reverse Proxy Configuration (nginx)
 
-If you deploy llama-swap behind nginx, disable response buffering for streaming endpoints. By default, nginx buffers responses which breaks Server‑Sent Events (SSE) and streaming chat completion. ([#236](https://github.com/mostlygeek/llama-swap/issues/236))
+If you deploy llama-hugs behind nginx, disable response buffering for streaming endpoints. By default, nginx buffers responses which breaks Server‑Sent Events (SSE) and streaming chat completion. ([#236](https://github.com/rahlquist/llama-hugs/issues/236))
 
 Recommended nginx configuration snippets:
 
 ```nginx
 # SSE for UI events/logs
 location /api/events {
-    proxy_pass http://your-llama-swap-backend;
+    proxy_pass http://your-llama-hugs-backend;
     proxy_buffering off;
     proxy_cache off;
 }
 
 # Streaming chat completions (stream=true)
 location /v1/chat/completions {
-    proxy_pass http://your-llama-swap-backend;
+    proxy_pass http://your-llama-hugs-backend;
     proxy_buffering off;
     proxy_cache off;
 }
 ```
 
-As a safeguard, llama-swap also sets `X-Accel-Buffering: no` on SSE responses. However, explicitly disabling `proxy_buffering` at your reverse proxy is still recommended for reliable streaming behavior.
+As a safeguard, llama-hugs also sets `X-Accel-Buffering: no` on SSE responses. However, explicitly disabling `proxy_buffering` at your reverse proxy is still recommended for reliable streaming behavior.
 
 ## Monitoring Logs on the CLI
 
@@ -270,10 +271,10 @@ $ curl http://host/logs
 # streams combined logs
 curl -Ns http://host/logs/stream
 
-# stream llama-swap's proxy status logs
+# stream llama-hugs's proxy status logs
 curl -Ns http://host/logs/stream/proxy
 
-# stream logs from upstream processes that llama-swap loads
+# stream logs from upstream processes that llama-hugs loads
 curl -Ns http://host/logs/stream/upstream
 
 # stream logs only from a specific model
@@ -288,7 +289,7 @@ curl -Ns 'http://host/logs/stream?no-history'
 
 ## Do I need to use llama.cpp's server (llama-server)?
 
-Any OpenAI compatible server would work. llama-swap was originally designed for llama-server and it is the best supported.
+Any OpenAI compatible server would work. llama-hugs was originally designed for llama-server and it is the best supported.
 
 For Python based inference servers like vllm or tabbyAPI it is recommended to run them via podman or docker. This provides clean environment isolation as well as responding correctly to `SIGTERM` signals for proper shutdown.
 

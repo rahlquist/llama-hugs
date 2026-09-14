@@ -1,6 +1,6 @@
 # config.yaml
 
-llama-swap is designed to be very simple: one binary, one configuration file.
+llama-hugs is designed to be very simple: one binary, one configuration file.
 
 ## minimal viable config
 
@@ -10,7 +10,7 @@ models:
     cmd: llama-server --port ${PORT} --model /path/to/model.gguf
 ```
 
-This is enough to launch `llama-server` to serve `model1`. Of course, llama-swap is about making it possible to serve many models:
+This is enough to launch `llama-server` to serve `model1`. Of course, llama-hugs is about making it possible to serve many models:
 
 ```yaml
 models:
@@ -26,7 +26,7 @@ With this configuration models will be hot swapped and loaded on demand. The spe
 
 ## Advanced control with `cmd`
 
-llama-swap is also about customizability. You can use any CLI flag available:
+llama-hugs is also about customizability. You can use any CLI flag available:
 
 ```yaml
 models:
@@ -41,7 +41,7 @@ models:
 
 ## Support for any OpenAI API compatible server
 
-llama-swap supports any OpenAI API compatible server. If you can run it on the CLI llama-swap will be able to manage it. Even if it's run in Docker or Podman containers.
+llama-hugs supports any OpenAI API compatible server. If you can run it on the CLI llama-hugs will be able to manage it. Even if it's run in Docker or Podman containers.
 
 ```yaml
 models:
@@ -70,7 +70,7 @@ models:
 
 ## Many more features..
 
-llama-swap supports many more features to customize how you want to manage your environment.
+llama-hugs supports many more features to customize how you want to manage your environment.
 
 | Feature   | Description                                    |
 | --------- | ---------------------------------------------- |
@@ -86,4 +86,4 @@ llama-swap supports many more features to customize how you want to manage your 
 
 ## Full Configuration Example
 
-Check [config.example.yaml](https://github.com/mostlygeek/llama-swap/blob/main/config.example.yaml) for the most up to date reference for all example configurations. It has grown quite complex but your favorite local LLM can help with a local configuration.
+Check [config.example.yaml](https://github.com/mostlygeek/llama-hugs/blob/main/config.example.yaml) for the most up to date reference for all example configurations. It has grown quite complex but your favorite local LLM can help with a local configuration.
