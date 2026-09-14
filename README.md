@@ -1,9 +1,8 @@
-![llama-swap header image](docs/assets/hero4.webp)
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/mostlygeek/llama-swap/total)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mostlygeek/llama-swap/go-ci.yml)
 ![GitHub Repo stars](https://img.shields.io/github/stars/mostlygeek/llama-swap)
 
-# llama-swap
+# llama-hugs
 
 Run multiple generative AI models on your machine and hot-swap between them on demand. llama-swap works with any OpenAI and Anthropic API compatible server and is used by thousands of people to power their local AI workflows.
 
