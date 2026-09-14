@@ -1,4 +1,3 @@
-![llama-hugs header image](docs/assets/hero4.webp)
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/rahlquist/llama-hugs/total)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/rahlquist/llama-hugs/go-ci.yml)
 ![GitHub Repo stars](https://img.shields.io/github/stars/rahlquist/llama-hugs)
