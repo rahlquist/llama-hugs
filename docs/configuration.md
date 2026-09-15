@@ -66,7 +66,69 @@ models:
         --gpu-memory-utilization 0.9
         --tensor-parallel-size 2
         --trust-remote-code
+``
+
+## Docker/Podman runtime members
+
+Any model whose `cmd` starts with a container runtime (`docker`, `podman`,
+...) runs that container as the upstream. llama-hugs treats it as opaque —
+it just waits for `:$PORT/health` to respond. This lets you swap between
+inference *engines* (not just models) by pointing `cmd` at a different
+image.
+
+### Contract (verified on wimpy, 2026-09-15)
+
+```yaml
+models:
+  "qwen3-8-27b-ktopt-cuda":
+    ttl: 300
+    env:
+    - CUDA_VISIBLE_DEVICES=0
+    capabilities:
+      in: [text]
+      out: [text]
+      tools: true
+    cmd: /usr/bin/docker run --rm --gpus all -v /home/rahlquist/kt-models:/models:ro -e PORT=${PORT} -e PROFILE=auto -e GPU_INDEX=0 -e CUDA_VISIBLE_DEVICES=0 -e ALIAS=qwen3-8-27b-ktopt-cuda -p ${PORT}:${PORT} ghcr.io/lrozewicz/kt-llama-cpp:cuda
 ```
+
+**Rules:**
+
+1. **`cmd` must be an absolute path.** Bare `docker` fails with
+   `upstream command exited prematurely` — Go's `exec.Command` does not
+   resolve via `$PATH` the way a shell would. Use `/usr/bin/docker` or
+   `/usr/bin/podman`.
+
+2. **`cmd` must be a single line.** A yaml block scalar (`cmd: |`) is
+   preserved with literal `\n` characters, which the entrypoint receives
+   as garbage. The vllm example above works because the block scalar's
+   newlines collapse to spaces when parsed — but a `${PORT}`-dependent
+   `-p` flag and env `-e` sequence is safer on one line.
+
+3. **`${PORT}` is substituted everywhere** — in `-p ${PORT}:${PORT}`,
+   env vars, flags. llama-hugs allocates a unique port per model.
+
+4. **Do not declare `aliases:` equal to the model id.** `gen-config.py`
+   auto-registers `model_id` sans the `hugs-` prefix as an alias. A
+   duplicate causes `duplicate alias ... found` and the entry is refused.
+
+5. **Mount models read-only** (`:ro`) when the entrypoint only reads them.
+   The kt-llama-cpp entrypoint never writes to `/models`.
+
+6. **Use `--rm`** so the container auto-removes on exit — no lingering
+   containers after llama-hugs unloads the model via `ttl`.
+
+7. **`cmdStop` is optional** — for named containers that need a graceful
+   stop signal. With `--rm` and a `ttl`, llama-hugs sends SIGTERM to the
+   process group; the container runtime handles the rest.
+
+### When to use a docker member
+
+- The model needs a forked inference server (e.g. KT-quantized GGUFs that
+  only load in `lrozewicz/kt-llama.cpp`, not mainline `llama.cpp`).
+- The model needs a different engine entirely (vllm, ComfyUI, audio.cpp).
+- You want the entrypoint to self-manage VRAM profiling, KV cache
+  compression, or speculative decoding drafter selection based on free
+  GPU memory at launch time.
 
 ## Many more features..
 
